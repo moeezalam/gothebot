@@ -216,7 +216,9 @@ def api_start():
         return jsonify({"ok": False, "error": "No students loaded. Load a config.csv first"}), 400
 
     data = request.get_json(silent=True) or {}
-    headless = data.get("headless", False)
+    headless = data.get("headless", not os.environ.get("DISPLAY"))
+    if not headless and not os.environ.get("DISPLAY"):
+        headless = True
 
     global telegram_token, telegram_chat_id
     telegram_token = data.get("telegram_token", telegram_token)
