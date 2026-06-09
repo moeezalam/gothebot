@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: goethe-booking-bot
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0

@@ -1,0 +1,4 @@
+name,email,password,exam_level,city,booking_datetime,passport,cnic,dob,phone,gender,nationality,address
+Ali Khan,ali.khan@email.com,AliPass123!,A1,Karachi,2026-07-03T11:24:00,AB1234567,42101-1234567-8,15/08/2000,+923001234567,Male,Pakistani,"House 12, Block 6, Clifton, Karachi"
+Sara Ahmed,sara.ahmed@email.com,SaraPass456!,A2,Lahore,2026-07-03T14:08:00,CD7890123,42201-9876543-2,22/03/1999,+923001112233,Female,Pakistani,"Flat 5, Main Boulevard, Gulberg, Lahore"
+Usman Ali,usman.ali@email.com,UsmanPass789!,B1,Islamabad,2026-07-03T15:04:00,EF3456789,42301-4567890-1,10/11/2001,+923004455667,Male,Pakistani,"Street 7, F-11/4, Islamabad"
