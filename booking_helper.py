@@ -651,7 +651,7 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
     name = student.get("name", "Unknown")
     email = student.get("email", "")
     password = student.get("password", "")
-    level = student.get("exam_level", "A1")
+    level = student.get("level", student.get("exam_level", ""))
     city = student.get("city", "Karachi")
     booking_time_str = student.get("booking_datetime", "")
 
@@ -847,7 +847,7 @@ def main() -> int:
 
     for i, s in enumerate(students):
         logger.info("  Student %d: %s | %s | %s | Booking: %s",
-                    i + 1, s.get("name"), s.get("exam_level"), s.get("city"), s.get("booking_datetime"))
+                    i + 1, s.get("name"), s.get("level", s.get("exam_level", "")), s.get("city"), s.get("booking_datetime"))
 
     threads = []
     results_list = []

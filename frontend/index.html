@@ -325,13 +325,13 @@ async function loadConfigFromBackend() {
     if (data.students && data.students.length > 0) {
       document.getElementById("configInfo").textContent = `✅ ${data.count} student(s) loaded`;
       updateStudentUI(data.students.map(s => ({
-        name: s.name, level: s.exam_level, city: s.city,
+        name: s.name, level: s.level || s.exam_level, city: s.city,
         booking_time: s.booking_datetime, status: "Not started",
         color: "secondary", details: ""
       })));
       document.getElementById("configPreview").textContent =
-        "name,email,password,exam_level,city,booking_datetime,passport,cnic,dob,phone,gender,nationality,address\n" +
-        data.students.map(s => `${s.name},${s.email},${s.password},${s.exam_level},${s.city},${s.booking_datetime},${s.passport||''},${s.cnic||''},${s.dob||''},${s.phone||''},${s.gender||''},${s.nationality||''},${s.address||''}`).join("\n");
+        "name,email,password,level,city,booking_datetime,dob,place_of_birth,address,phone\n" +
+        data.students.map(s => `${s.name},${s.email},${s.password},${s.level||s.exam_level||''},${s.city},${s.booking_datetime},${s.dob||''},${s.place_of_birth||''},${s.address||''},${s.phone||''}`).join("\n");
     } else {
       document.getElementById("configInfo").textContent = "⚠ No students on server. Upload a config.csv";
     }

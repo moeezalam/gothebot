@@ -56,7 +56,7 @@ class StudentCard(Frame):
         super().__init__(parent, bg=CARD_BG, highlightbackground=ACCENT, highlightthickness=1)
         self.student = student
         self.name = student.get("name", f"Student {index+1}")
-        self.level = student.get("exam_level", "?")
+        self.level = student.get("level", student.get("exam_level", "?"))
         self.city = student.get("city", "?")
         self.booking_time = student.get("booking_datetime", "?")
 

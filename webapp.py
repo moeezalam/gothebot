@@ -146,7 +146,7 @@ def api_status():
         "students": [
             {
                 "name": s.get("name", "?"),
-                "level": s.get("exam_level", "?"),
+                "level": s.get("level", s.get("exam_level", "?")),
                 "city": s.get("city", "?"),
                 "booking_time": s.get("booking_datetime", "?"),
                 "status": student_status.get(s.get("name", ""), {}).get("status", "Not started"),
