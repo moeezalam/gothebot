@@ -1,7 +1,15 @@
-# Goethe Booking Bot — Session Summary (Updated 11 Jun 2026)
+# Goethe Booking Bot — Session Summary (Updated 11 Jun 2026 v2)
 
 ## Project
 Automated bot for booking Goethe-Institut Pakistan German language exams (A1, A2, B1) — multi-student, multi-city.
+
+## Session Files (new this session)
+| File | Purpose |
+|------|---------|
+| `C:\Users\brosp\AppData\Local\Temp\opencode\make_pdf.py` | PDF presentation generator (fpdf2 + Inter font) |
+| `C:\Users\brosp\Downloads\Goethe Bot Presentation.pdf` | Client pitch presentation for Hamza (12 slides, v6) |
+| `C:\Users\brosp\AppData\Local\Temp\opencode\Inter-Regular.ttf` | Inter Regular font (downloaded from Google Fonts) |
+| `C:\Users\brosp\AppData\Local\Temp\opencode\Inter-Bold.ttf` | Inter Bold font (downloaded from Google Fonts) |
 
 ## User
 - GitHub: `abeermeer`
@@ -20,7 +28,15 @@ Automated bot for booking Goethe-Institut Pakistan German language exams (A1, A2
 | **GitHub** | https://github.com/abeermeer/goethe-booking-bot | ✅ Latest code pushed |
 | **Custom Domain** | User purchased a domain — needs to connect to Netlify | ⏳ Pending |
 
-## What's Fixed This Session (11 Jun)
+## Presentation
+- **File:** `C:\Users\brosp\Downloads\Goethe Bot Presentation.pdf` (client pitch for Hamza)
+- **Font:** Inter (embedded) — `C:\Users\brosp\AppData\Local\Temp\opencode\Inter-*.ttf`
+- **Generator script:** `C:\Users\brosp\AppData\Local\Temp\opencode\make_pdf.py`
+- **Latest version:** v6 — 12 slides, dark theme, professional design with dashboard mockup, phone+desktop mockup, workflow diagram, speed table, architecture flow
+- **Versions created:** v1 (basic) → v2 (bigger fonts, rounded corners) → v3 (fixed naming conflicts) → v4 (width-aware text, no overlap) → v5 (clean light theme) → v6 (advanced diagrams, mockups)
+- **Status:** User took the latest version, will finalize manually (adding images, fixing text overflow, adjusting font sizes)
+
+## What's Fixed This Session (11 Jun v1)
 - **Level field mismatch** — CSV header was `level` but code read `exam_level` → all students showed A1. Fixed: `student.get("level", student.get("exam_level", ""))` in booking_helper.py, webapp.py, gui.py, frontend
 - **Chrome OOM crash** — 3 Chrome instances on 512MB RAM killed each other at simultaneous launch. Fixed: auto-retry `create_driver` up to 3 times with 5s delay
 - **Logger handler overwrite** — all 3 students used logger name `bot_Abeer Meer`, causing `handlers.clear()` to drop logs from previous students. Fixed: unique logger names per student (`bot_{name}_{level}`)
