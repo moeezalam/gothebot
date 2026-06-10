@@ -257,7 +257,17 @@ def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrom
     else:
         service = Service(ChromeDriverManager().install())
         service.creation_flags = 0
-    driver = webdriver.Chrome(service=service, options=options)
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            driver = webdriver.Chrome(service=service, options=options)
+            break
+        except Exception as exc:
+            if attempt < max_attempts:
+                logger.warning("Chrome launch attempt %d/%d failed: %s. Retrying in 5s...", attempt, max_attempts, exc)
+                time.sleep(5)
+            else:
+                raise
     try:
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     except Exception:
@@ -867,7 +877,6 @@ def main() -> int:
         )
         threads.append(t)
         t.start()
-        time.sleep(10)
 
     for t in threads:
         t.join()
