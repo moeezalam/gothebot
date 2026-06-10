@@ -867,7 +867,7 @@ def main() -> int:
         )
         threads.append(t)
         t.start()
-        time.sleep(45)
+        time.sleep(10)
 
     for t in threads:
         t.join()
