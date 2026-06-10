@@ -231,6 +231,13 @@ def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrom
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-sync")
+        options.add_argument("--disable-translate")
+        options.add_argument("--disable-default-apps")
+        options.add_argument("--mute-audio")
+        options.add_argument("--no-first-run")
         os.environ["DBUS_SESSION_BUS_ADDRESS"] = "/dev/null"
         os.environ["DISPLAY"] = ":99"
     options.add_argument("--disable-blink-features=AutomationControlled")
@@ -860,6 +867,7 @@ def main() -> int:
         )
         threads.append(t)
         t.start()
+        time.sleep(45)
 
     for t in threads:
         t.join()

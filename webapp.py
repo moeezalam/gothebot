@@ -113,6 +113,7 @@ def run_students_web(students: List[Dict], headless: bool):
         t = threading.Thread(target=run_one, args=(s,), daemon=True)
         threads.append(t)
         t.start()
+        time.sleep(45)
 
     for t in threads:
         t.join()
