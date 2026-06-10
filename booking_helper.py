@@ -221,6 +221,11 @@ def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrom
             options.add_argument("--headless=new")
         options.add_argument("--start-maximized")
     else:
+        # Auto-detect Chrome binary on Linux (multiple paths)
+        for chrome_bin in ["/usr/bin/google-chrome-stable", "/usr/bin/google-chrome", "/usr/bin/chromium-browser", "/usr/bin/chromium"]:
+            if Path(chrome_bin).exists():
+                options.binary_location = chrome_bin
+                break
         options.add_argument("--headless=new")
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
@@ -235,8 +240,15 @@ def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrom
     profile_dir.mkdir(parents=True, exist_ok=True)
     options.add_argument(f"--user-data-dir={profile_dir}")
 
-    service = Service(ChromeDriverManager().install())
-    if os.name == "nt":
+    # Use system chromedriver on Linux if available (Alpine), else use webdriver-manager
+    if os.name != "nt":
+        system_driver = next((p for p in ["/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver"] if Path(p).exists()), None)
+        if system_driver:
+            service = Service(system_driver)
+        else:
+            service = Service(ChromeDriverManager().install())
+    else:
+        service = Service(ChromeDriverManager().install())
         service.creation_flags = 0
     driver = webdriver.Chrome(service=service, options=options)
     try:
