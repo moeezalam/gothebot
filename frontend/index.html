@@ -190,6 +190,16 @@
 
   .empty-state { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
 
+  /* Toggle */
+  .mode-toggle { display: flex; background: var(--bg); border-radius: 8px; padding: 3px; border: 1px solid var(--border); }
+  .mode-toggle button {
+    flex: 1; padding: 6px 14px; font-size: 12px; font-weight: 500; border: none; cursor: pointer;
+    background: transparent; color: var(--muted); border-radius: 6px; transition: all 0.15s;
+  }
+  .mode-toggle button.active { background: var(--accent); color: white; }
+  .schedule-row { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .schedule-row.show { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
   /* Config preview */
   .cfg-preview {
     background: #070714; border: 1px solid var(--border); border-radius: 6px;
@@ -225,7 +235,7 @@
   </div>
 
   <!-- Row 1: Controls -->
-  <div class="grid grid-3">
+  <div class="grid grid-2">
     <!-- Config -->
     <div class="card">
       <div class="card-hd"><h3><span class="ico">⚙️</span> Configuration</h3></div>
@@ -239,27 +249,26 @@
       <div id="configPreview" class="cfg-preview"></div>
     </div>
 
-    <!-- Actions -->
+    <!-- Actions + Schedule -->
     <div class="card">
       <div class="card-hd"><h3><span class="ico">🎯</span> Actions</h3></div>
-      <div class="btn-group">
+      <div class="btn-group" style="margin-bottom:8px;">
         <button id="btnStart" class="btn btn-success" onclick="startBot()">▶ Start Bot</button>
         <button id="btnStop" class="btn btn-danger" disabled onclick="stopBot()">■ Stop</button>
         <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer;">
           <input type="checkbox" id="headlessMode" style="accent-color:var(--accent);"> Headless
         </label>
       </div>
-    </div>
-
-    <!-- Schedule -->
-    <div class="card">
-      <div class="card-hd"><h3><span class="ico">⏰</span> Schedule</h3></div>
-      <div class="input-group">
+      <div class="mode-toggle">
+        <button id="modeNow" class="active" onclick="setMode('now')">▶ Run Now</button>
+        <button id="modeLater" onclick="setMode('later')">⏰ Schedule</button>
+      </div>
+      <div id="scheduleRow" class="schedule-row">
         <input type="datetime-local" id="scheduleDt" style="flex:1;">
         <button class="btn btn-outline btn-sm" onclick="scheduleStart()">Set</button>
         <button class="btn btn-outline btn-sm" onclick="cancelSchedule()">✕</button>
+        <span id="scheduleStatus" style="font-size:11px;color:var(--muted);"></span>
       </div>
-      <div id="scheduleStatus" style="font-size:11px;color:var(--muted);margin-top:6px;"></div>
     </div>
   </div>
 
@@ -510,6 +519,36 @@ async function stopBot() {
   } catch (e) { alert("Stop failed: " + e.message); }
 }
 
+// ── Mode Toggle ──
+let currentMode = "now";
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById("modeNow").className = mode === "now" ? "active" : "";
+  document.getElementById("modeLater").className = mode === "later" ? "active" : "";
+  document.getElementById("scheduleRow").className = "schedule-row" + (mode === "later" ? " show" : "");
+  if (mode === "now") document.getElementById("scheduleStatus").textContent = "";
+}
+
+// Override startBot to handle schedule mode
+const _origStartBot = startBot;
+startBot = async function() {
+  if (currentMode === "later") {
+    const dt = document.getElementById("scheduleDt").value;
+    if (!dt) return alert("Select a date/time for the schedule");
+    try {
+      const resp = await fetch(`${BASE}/api/schedule-start`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({datetime: dt + ":00"}), signal: AbortSignal.timeout(5000),
+      });
+      const data = await resp.json();
+      document.getElementById("scheduleStatus").textContent = data.ok ? "✅ Scheduled for " + dt : "❌ " + data.error;
+    } catch(e) { alert("Schedule failed"); }
+    return;
+  }
+  return _origStartBot.call(this);
+};
+
 // ── Schedule ──
 async function scheduleStart() {
   const dt = document.getElementById("scheduleDt").value;
@@ -535,7 +574,10 @@ async function loadScheduleStatus() {
   try {
     const resp = await fetch(`${BASE}/api/schedule-status`, { signal: AbortSignal.timeout(5000) });
     const data = await resp.json();
-    if (data.scheduled) document.getElementById("scheduleStatus").textContent = "⏳ Scheduled for " + data.datetime;
+    if (data.scheduled) {
+      document.getElementById("scheduleStatus").textContent = "⏳ Scheduled for " + data.datetime;
+      setMode("later");
+    }
   } catch { /* ignore */ }
 }
 
