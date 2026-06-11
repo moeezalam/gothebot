@@ -10,3 +10,6 @@ confirmation_*
 .env
 
 config.csv
+
+# Local Netlify folder
+.netlify

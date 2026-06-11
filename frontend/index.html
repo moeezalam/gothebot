@@ -5,231 +5,318 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Goethe Booking Bot</title>
 <style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #222240;
+    --border: #2a2a4a;
+    --text: #e0e0f0;
+    --muted: #6c6c8a;
+    --accent: #6c5ce7;
+    --accent2: #a29bfe;
+    --green: #00c853;
+    --red: #ff1744;
+    --yellow: #ffc107;
+    --blue: #448aff;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #11111b; color: #cdd6f4; min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
   }
-  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
 
+  /* Header */
   header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 0; border-bottom: 1px solid #313244; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+    padding: 16px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+    flex-wrap: wrap; gap: 12px;
   }
-  header h1 { font-size: 22px; display: flex; align-items: center; gap: 10px; }
-  header h1 span { font-size: 14px; color: #585b70; font-weight: normal; }
-
-  .status-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: white; font-weight: 700;
   }
-  .badge-idle { background: #313244; color: #6c7086; }
-  .badge-running { background: #1e3a2a; color: #a6e3a1; }
-  .badge-stopping { background: #3a2e1e; color: #f9e2af; }
-  .badge-disconnected { background: #3a1e2a; color: #f38ba8; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .dot-idle { background: #6c7086; }
-  .dot-running { background: #a6e3a1; animation: pulse 1.5s infinite; }
-  .dot-stopping { background: #f9e2af; animation: pulse 1s infinite; }
-  .dot-disconnected { background: #f38ba8; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .logo h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { font-size: 12px; color: var(--muted); font-weight: 400; display: block; }
 
-  .backend-bar {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 16px; border-radius: 100px; font-size: 13px; font-weight: 500;
+    background: var(--surface2); border: 1px solid var(--border);
   }
-  .backend-bar input {
-    flex: 1; min-width: 250px;
-    background: #313244; border: 1px solid #45475a; border-radius: 6px;
-    padding: 8px 12px; color: #cdd6f4; font-size: 13px;
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-idle { background: var(--muted); }
+  .dot-running { background: var(--green); animation: pulse 1.2s infinite; }
+  .dot-stopping { background: var(--yellow); animation: pulse 0.8s infinite; }
+  .dot-disconnected { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  /* Connection bar */
+  .conn-bar {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 16px; flex-wrap: wrap;
   }
-  .backend-bar input:focus { outline: none; border-color: #89b4fa; }
+  .conn-bar input {
+    flex: 1; min-width: 200px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .conn-bar input:focus { border-color: var(--accent); }
+  .conn-bar .status-text { font-size: 12px; color: var(--muted); }
+  .conn-bar .status-text.ok { color: var(--green); }
+  .conn-bar .status-text.err { color: var(--red); }
 
-  .row { display: flex; gap: 12px; flex-wrap: wrap; }
-  .col { flex: 1; min-width: 350px; }
+  /* Grid */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width:900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 
+  /* Card */
   .card {
-    background: #1e1e2e; border: 1px solid #313244; border-radius: 10px;
-    padding: 16px; margin-bottom: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; transition: border-color 0.2s;
   }
-  .card-title {
-    font-size: 12px; font-weight: 600; text-transform: uppercase;
-    color: #6c7086; letter-spacing: 0.5px; margin-bottom: 12px;
-    display: flex; justify-content: space-between; align-items: center;
+  .card:hover { border-color: rgba(108,92,231,0.3); }
+  .card-hd {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
   }
+  .card-hd h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .card-hd h3 .ico { font-size: 16px; }
 
+  /* Buttons */
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
     border: none; cursor: pointer; transition: all 0.15s;
   }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-start { background: #40a02b; color: white; }
-  .btn-start:hover:not(:disabled) { background: #4cb83a; }
-  .btn-stop { background: #d20f39; color: white; }
-  .btn-stop:hover:not(:disabled) { background: #e64553; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent2); }
+  .btn-success { background: var(--green); color: white; }
+  .btn-success:hover:not(:disabled) { background: #00e676; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-danger:hover:not(:disabled) { background: #ff5252; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover:not(:disabled) { border-color: var(--accent); color: var(--accent2); }
   .btn-sm { font-size: 12px; padding: 6px 12px; }
-  .btn-secondary { background: #45475a; color: #cdd6f4; }
-  .btn-secondary:hover:not(:disabled) { background: #585b70; }
-  .btn-outline {
-    background: transparent; border: 1px solid #45475a; color: #cdd6f4;
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  /* Form controls */
+  input, select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; color: var(--text); font-size: 13px; outline: none;
   }
-  .btn-outline:hover:not(:disabled) { border-color: #89b4fa; color: #89b4fa; }
+  input:focus, select:focus { border-color: var(--accent); }
+  input[type="file"] { display: none; }
+  .input-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
-
-  .config-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-  .config-actions input[type="file"] { display: none; }
-
-  .student-grid { display: grid; gap: 10px; }
-  .student-card {
-    background: #181825; border: 1px solid #313244; border-radius: 8px;
-    padding: 14px; transition: border-color 0.3s;
+  /* Student cards */
+  .student-grid { display: flex; flex-direction: column; gap: 10px; }
+  .scard {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; transition: all 0.2s; border-left: 3px solid var(--border);
   }
-  .student-card.border-warning { border-color: #f9e2af; }
-  .student-card.border-success { border-color: #a6e3a1; }
-  .student-card.border-danger { border-color: #f38ba8; }
-  .student-card.border-info { border-color: #89b4fa; }
-  .student-card.border-secondary { border-color: #313244; }
-  .student-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-  .student-meta { font-size: 12px; color: #6c7086; margin-bottom: 6px; }
-  .student-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
-  .status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-  .text-warning { color: #f9e2af; }
-  .text-success { color: #a6e3a1; }
-  .text-danger { color: #f38ba8; }
-  .text-info { color: #89b4fa; }
-  .text-secondary { color: #6c7086; }
+  .scard.border-warning { border-left-color: var(--yellow); }
+  .scard.border-success { border-left-color: var(--green); }
+  .scard.border-danger { border-left-color: var(--red); }
+  .scard.border-info { border-left-color: var(--blue); }
+  .scard.border-secondary { border-left-color: var(--border); }
+  .scard-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .scard-name { font-size: 14px; font-weight: 600; }
+  .scard-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .scard-status { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+  .scard-detail { font-size: 11px; color: var(--muted); }
 
+  /* Progress bar */
+  .progress-wrap { margin-top: 8px; }
+  .progress-bar {
+    height: 4px; background: var(--bg); border-radius: 4px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 4px; transition: width 0.5s ease;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .progress-fill.done { background: var(--green); }
+  .progress-fill.fail { background: var(--red); }
+  .progress-label { font-size: 10px; color: var(--muted); margin-top: 3px; display: flex; justify-content: space-between; }
+
+  /* Steps timeline */
+  .steps { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+  .step {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    background: var(--bg); color: var(--muted);
+  }
+  .step.done { background: rgba(0,200,83,0.15); color: var(--green); }
+  .step.active { background: rgba(108,92,231,0.2); color: var(--accent2); }
+  .step.fail { background: rgba(255,23,68,0.15); color: var(--red); }
+
+  /* Log box */
   .log-box {
-    background: #0c0c16; border: 1px solid #313244; border-radius: 8px;
-    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-    font-size: 12px; line-height: 1.6;
-    height: 400px; overflow-y: auto; padding: 12px;
-    white-space: pre-wrap; word-break: break-all;
+    background: #070714; border: 1px solid var(--border); border-radius: 8px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px; line-height: 1.6; height: 300px; overflow-y: auto;
+    padding: 12px; white-space: pre-wrap; word-break: break-all;
   }
-  .log-box::-webkit-scrollbar { width: 6px; }
-  .log-box::-webkit-scrollbar-track { background: #11111b; }
-  .log-box::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
-  .log-entry { padding: 1px 0; }
-  .log-INFO { color: #cdd6f4; }
-  .log-WARNING { color: #f9e2af; }
-  .log-ERROR { color: #f38ba8; }
-  .log-CRITICAL { color: #f38ba8; font-weight: bold; }
-  .log-DEBUG { color: #585b70; }
-  .log-heartbeat { color: #313244; font-size: 10px; }
+  .log-box::-webkit-scrollbar { width: 5px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .log-INFO { color: var(--muted); }
+  .log-WARNING { color: var(--yellow); }
+  .log-ERROR { color: var(--red); }
+  .log-CRITICAL { color: var(--red); font-weight: 600; }
+  .log-HEARTBEAT { color: #1a1a2e; font-size: 9px; }
 
-  .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .summary-table th { text-align: left; color: #6c7086; font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid #313244; }
-  .summary-table td { padding: 6px 8px; border-bottom: 1px solid #252536; }
+  /* Schedule table */
+  .sched-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .sched-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .sched-table td { padding: 5px 8px; border-bottom: 1px solid rgba(42,42,74,0.5); }
+  .sched-group { margin-bottom: 12px; }
+  .sched-group h4 { font-size: 12px; color: var(--accent2); margin-bottom: 4px; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+  .tag-open { background: rgba(0,200,83,0.15); color: var(--green); }
+  .tag-closed { background: rgba(255,23,68,0.15); color: var(--red); }
 
-  .config-preview {
-    background: #0c0c16; border: 1px solid #313244; border-radius: 6px;
+  /* Results table */
+  .res-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .res-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; padding: 8px; border-bottom: 1px solid var(--border); }
+  .res-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+
+  .empty-state { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+
+  /* Config preview */
+  .cfg-preview {
+    background: #070714; border: 1px solid var(--border); border-radius: 6px;
     padding: 10px; font-family: monospace; font-size: 11px;
-    max-height: 200px; overflow: auto; margin-top: 8px;
-    white-space: pre; line-height: 1.5;
+    max-height: 150px; overflow: auto; margin-top: 8px; white-space: pre; line-height: 1.4; display: none;
   }
 
-  @media (max-width: 768px) {
-    .row { flex-direction: column; }
-    .col { min-width: 100%; }
-    .controls { flex-direction: column; align-items: stretch; }
-  }
+  /* Footer */
+  .footer { text-align: center; color: var(--muted); font-size: 11px; padding: 20px 0 10px; border-top: 1px solid var(--border); margin-top: 24px; }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>🎓 Goethe Booking Bot <span>v1.0</span></h1>
-    <div id="statusBadge" class="status-badge badge-disconnected">
+    <div class="logo">
+      <div class="logo-icon">G</div>
+      <div>
+        <h1>Goethe Bot <span>v2.0</span></h1>
+      </div>
+    </div>
+    <div id="statusBadge" class="badge">
       <span id="statusDot" class="dot dot-disconnected"></span>
       <span id="statusText">Disconnected</span>
     </div>
   </header>
 
-  <!-- Backend URL -->
-  <div class="backend-bar">
-    <span style="font-size:13px;color:#6c7086;white-space:nowrap;">🔗 Backend URL:</span>
+  <!-- Connection -->
+  <div class="conn-bar">
+    <span style="font-size:13px;color:var(--muted);">🔗</span>
     <input type="text" id="backendUrl" placeholder="http://localhost:5000">
-    <button class="btn btn-secondary btn-sm" onclick="connectBackend()">Connect</button>
-    <span id="backendStatus" style="font-size:12px;color:#6c7086;"></span>
+    <button class="btn btn-outline btn-sm" onclick="connectBackend()">Connect</button>
+    <span id="backendStatus" class="status-text">Not connected</span>
   </div>
 
-  <!-- Config -->
-  <div class="card">
-    <div class="card-title">Configuration</div>
-    <div class="config-actions">
-      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('csvFile').click()">📂 Upload config.csv</button>
-      <input type="file" id="csvFile" accept=".csv" onchange="uploadConfig(event)">
-      <button class="btn btn-secondary btn-sm" onclick="loadConfigFromBackend()">📥 Load from server</button>
-      <button class="btn btn-outline btn-sm" onclick="toggleConfigPreview()">👁 Preview</button>
-    </div>
-    <div id="configInfo" style="font-size:12px;color:#6c7086;"></div>
-    <div id="configPreview" class="config-preview" style="display:none;"></div>
-
-    <div class="controls">
-      <button id="btnStart" class="btn btn-start" onclick="startBot()">▶ Start Bot</button>
-      <button id="btnStop" class="btn btn-stop" disabled onclick="stopBot()">■ Stop Bot</button>
-      <label style="font-size:12px;color:#6c7086;display:flex;align-items:center;gap:4px;">
-        <input type="checkbox" id="headlessMode" style="accent-color:#89b4fa;"> Headless
-      </label>
-    </div>
-    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <span style="font-size:12px;color:#6c7086;">📱 Telegram:</span>
-      <input type="text" id="tgToken" placeholder="Bot Token" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:140px;">
-      <input type="text" id="tgChatId" placeholder="Chat ID" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:140px;">
-      <span style="font-size:12px;color:#6c7086;">📧 Email:</span>
-      <input type="text" id="emailTo" placeholder="Email to" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:160px;">
-      <span style="font-size:12px;color:#6c7086;">💬 WhatsApp:</span>
-      <input type="text" id="waTo" placeholder="WhatsApp to" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:140px;">
-    </div>
-  </div>
-
-  <!-- Schedule Card -->
-  <div class="card">
-    <div class="card-title">⏰ Schedule Auto-Start</div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="datetime-local" id="scheduleDt" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:8px 12px;color:#cdd6f4;font-size:13px;">
-      <button class="btn btn-secondary btn-sm" onclick="scheduleStart()">Schedule</button>
-      <button class="btn btn-secondary btn-sm" onclick="cancelSchedule()">Cancel</button>
-      <span id="scheduleStatus" style="font-size:12px;color:#6c7086;"></span>
-    </div>
-  </div>
-
-  <!-- Exam Schedule -->
-  <div class="card" id="scheduleCard">
-    <div class="card-title">
-      <span>📅 Exam Schedule 2026</span>
-      <button class="btn btn-secondary btn-sm" onclick="loadSchedule()">🔄 Refresh</button>
-    </div>
-    <div id="scheduleBody" style="font-size:12px;color:#6c7086;text-align:center;padding:10px;">Connect to backend to view schedule</div>
-  </div>
-
-  <div class="row">
-    <div class="col">
-      <div class="card">
-        <div class="card-title">Students</div>
-        <div id="studentGrid" class="student-grid">
-          <div style="color:#6c7086;font-size:13px;text-align:center;padding:20px;">Connect to backend and load config</div>
-        </div>
+  <!-- Row 1: Controls -->
+  <div class="grid grid-3">
+    <!-- Config -->
+    <div class="card">
+      <div class="card-hd"><h3><span class="ico">⚙️</span> Configuration</h3></div>
+      <div class="input-group" style="margin-bottom:8px;">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('csvFile').click()">📂 Upload CSV</button>
+        <input type="file" id="csvFile" accept=".csv" onchange="uploadConfig(event)">
+        <button class="btn btn-outline btn-sm" onclick="loadConfigFromBackend()">📥 From Server</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleConfigPreview()">👁 Preview</button>
       </div>
-      <div class="card" id="resultsCard" style="display:none;">
-        <div class="card-title">Results</div>
-        <table class="summary-table">
+      <div id="configInfo" style="font-size:12px;color:var(--muted);"></div>
+      <div id="configPreview" class="cfg-preview"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+      <div class="card-hd"><h3><span class="ico">🎯</span> Actions</h3></div>
+      <div class="btn-group">
+        <button id="btnStart" class="btn btn-success" onclick="startBot()">▶ Start Bot</button>
+        <button id="btnStop" class="btn btn-danger" disabled onclick="stopBot()">■ Stop</button>
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="checkbox" id="headlessMode" style="accent-color:var(--accent);"> Headless
+        </label>
+      </div>
+    </div>
+
+    <!-- Schedule -->
+    <div class="card">
+      <div class="card-hd"><h3><span class="ico">⏰</span> Schedule</h3></div>
+      <div class="input-group">
+        <input type="datetime-local" id="scheduleDt" style="flex:1;">
+        <button class="btn btn-outline btn-sm" onclick="scheduleStart()">Set</button>
+        <button class="btn btn-outline btn-sm" onclick="cancelSchedule()">✕</button>
+      </div>
+      <div id="scheduleStatus" style="font-size:11px;color:var(--muted);margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <!-- Row 2: Notifications + History -->
+  <div class="grid grid-2" style="margin-top:4px;">
+    <div class="card">
+      <div class="card-hd"><h3><span class="ico">📬</span> Notifications</h3></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+        <span style="color:var(--muted);">Telegram Token</span>
+        <input type="text" id="tgToken" placeholder="Bot token">
+        <span style="color:var(--muted);">Telegram Chat ID</span>
+        <input type="text" id="tgChatId" placeholder="Chat ID">
+        <span style="color:var(--muted);">Email To</span>
+        <input type="text" id="emailTo" placeholder="email@example.com">
+        <span style="color:var(--muted);">WhatsApp To</span>
+        <input type="text" id="waTo" placeholder="Phone number">
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h3><span class="ico">📊</span> History</h3></div>
+      <div id="resultsCard" style="display:none;">
+        <table class="res-table">
           <thead><tr><th>Student</th><th>Status</th><th>Reference</th></tr></thead>
           <tbody id="resultsBody"></tbody>
         </table>
       </div>
-    </div>
-    <div class="col">
-      <div class="card">
-        <div class="card-title">
-          <span>Live Log</span>
-          <button class="btn btn-secondary btn-sm" onclick="clearLog()">Clear</button>
-        </div>
-        <div id="logBox" class="log-box"></div>
-      </div>
+      <div id="resultsEmpty" class="empty-state">No results yet</div>
     </div>
   </div>
+
+  <!-- Row 3: Students + Logs -->
+  <div class="grid grid-2" style="margin-top:4px;">
+    <div class="card">
+      <div class="card-hd"><h3><span class="ico">👥</span> Students</h3></div>
+      <div id="studentGrid" class="student-grid">
+        <div class="empty-state">Connect to backend and load config</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <h3><span class="ico">📋</span> Live Log</h3>
+        <button class="btn btn-outline btn-sm" onclick="clearLog()">Clear</button>
+      </div>
+      <div id="logBox" class="log-box"></div>
+    </div>
+  </div>
+
+  <!-- Exam Schedule -->
+  <div class="card" style="margin-top:4px;">
+    <div class="card-hd">
+      <h3><span class="ico">📅</span> Exam Schedule 2026</h3>
+      <button class="btn btn-outline btn-sm" onclick="loadSchedule()">🔄</button>
+    </div>
+    <div id="scheduleBody" style="font-size:12px;color:var(--muted);padding:8px 0;">Connect to view schedule</div>
+  </div>
+
+  <div class="footer">Goethe Booking Bot v2.0 — Personal Use Only</div>
 </div>
 
 <script>
@@ -245,16 +332,19 @@ document.getElementById("backendUrl").value = BASE;
 loadNotificationSettings();
 connectBackend();
 
-// ── Backend Connection ──
+// ── Connection ──
 async function connectBackend() {
   BASE = document.getElementById("backendUrl").value.trim().replace(/\/+$/, "");
   localStorage.setItem("backend_url", BASE);
-  document.getElementById("backendStatus").textContent = "Connecting...";
+  const statusEl = document.getElementById("backendStatus");
+  statusEl.textContent = "Connecting...";
+  statusEl.className = "status-text";
   try {
     const resp = await fetch(`${BASE}/api/status`, { signal: AbortSignal.timeout(5000) });
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     connected = true;
-    document.getElementById("backendStatus").textContent = "✅ Connected";
+    statusEl.textContent = "✅ Connected";
+    statusEl.className = "status-text ok";
     updateBadge(false);
     await loadConfigFromBackend();
     await loadSchedule();
@@ -262,14 +352,13 @@ async function connectBackend() {
     startStatusPoll();
   } catch (e) {
     connected = false;
-    document.getElementById("backendStatus").textContent = "❌ Cannot connect";
-    document.getElementById("statusBadge").className = "status-badge badge-disconnected";
-    document.getElementById("statusDot").className = "dot dot-disconnected";
-    document.getElementById("statusText").textContent = "Disconnected";
+    statusEl.textContent = "❌ Cannot connect";
+    statusEl.className = "status-text err";
+    document.getElementById("statusBadge").innerHTML = '<span class="dot dot-disconnected"></span> Disconnected';
   }
 }
 
-// ── Status Polling ──
+// ── Status Poll ──
 function startStatusPoll() {
   if (statusPollTimer) clearInterval(statusPollTimer);
   statusPollTimer = setInterval(fetchStatus, 3000);
@@ -285,42 +374,17 @@ async function fetchStatus() {
     toggleButtons(data.running);
     if (data.students) updateStudentUI(data.students);
     if (!data.running && running) {
-      running = false;
-      closeSSE();
+      running = false; closeSSE();
       setTimeout(loadResults, 1000);
     }
     running = data.running;
   } catch { /* ignore */ }
 }
 
-function updateStudentUI(students) {
-  const grid = document.getElementById("studentGrid");
-  grid.innerHTML = students.map(s => `
-    <div class="student-card border-${s.color}" data-name="${escHtml(s.name)}">
-      <div class="student-name">${escHtml(s.name)}</div>
-      <div class="student-meta">${escHtml(s.level)} | ${escHtml(s.city)} | Booking: ${escHtml(s.booking_time)}</div>
-      <div class="student-status text-${s.color}">
-        <span class="status-dot" style="background:${getColor(s.color)};"></span>
-        <span>${escHtml(s.status)}</span>
-        ${s.details ? `<span style="font-size:11px;color:#6c7086;">— ${escHtml(s.details)}</span>` : ''}
-      </div>
-    </div>
-  `).join("");
-}
-
 function updateBadge(isRunning) {
   const badge = document.getElementById("statusBadge");
-  const dot = document.getElementById("statusDot");
-  const text = document.getElementById("statusText");
-  if (isRunning) {
-    badge.className = "status-badge badge-running";
-    dot.className = "dot dot-running";
-    text.textContent = "Running";
-  } else {
-    badge.className = "status-badge badge-idle";
-    dot.className = "dot dot-idle";
-    text.textContent = "Idle";
-  }
+  if (isRunning) badge.innerHTML = '<span class="dot dot-running"></span> Running';
+  else badge.innerHTML = '<span class="dot dot-idle"></span> Idle';
 }
 
 function toggleButtons(isRunning) {
@@ -328,8 +392,37 @@ function toggleButtons(isRunning) {
   document.getElementById("btnStop").disabled = !isRunning || !connected;
 }
 
+// ── Student UI ──
+const STEPS = ["Poll", "Book", "Continue", "Myself", "Login", "Form", "Confirm"];
+
+function updateStudentUI(students) {
+  const grid = document.getElementById("studentGrid");
+  grid.innerHTML = students.map(s => {
+    const pct = s.status === "Confirmed!" || s.status === "Submitted" ? 100 :
+                s.status === "Failed" || s.status === "Stopped" ? 0 :
+                s.status === "Not started" ? 0 : 45;
+    return `<div class="scard border-${s.color}">
+      <div class="scard-top">
+        <div><div class="scard-name">${escHtml(s.name)}</div></div>
+        <span class="step ${s.status === 'Confirmed!' || s.status === 'Submitted' ? 'done' : s.status === 'Failed' || s.status === 'Stopped' ? 'fail' : s.status === 'Not started' ? '' : 'active'}">${escHtml(s.status)}</span>
+      </div>
+      <div class="scard-meta">${escHtml(s.level)} | ${escHtml(s.city)} | ${escHtml(s.booking_time)}</div>
+      <div class="scard-status" style="color:${getColor(s.color)};">
+        <span class="status-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${getColor(s.color)};"></span>
+        <span>${escHtml(s.status)}</span>
+        ${s.details ? `<span class="scard-detail">— ${escHtml(s.details)}</span>` : ''}
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar">
+          <div class="progress-fill ${s.status === 'Confirmed!' || s.status === 'Submitted' ? 'done' : s.status === 'Failed' || s.status === 'Stopped' ? 'fail' : ''}" style="width:${pct}%"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function getColor(c) {
-  return {warning:"#f9e2af", success:"#a6e3a1", danger:"#f38ba8", info:"#89b4fa", secondary:"#6c7086"}[c] || "#6c7086";
+  return {warning:"#ffc107", success:"#00c853", danger:"#ff1744", info:"#448aff", secondary:"#6c6c8a"}[c] || "#6c6c8a";
 }
 
 // ── Config ──
@@ -346,14 +439,13 @@ async function loadConfigFromBackend() {
         color: "secondary", details: ""
       })));
       document.getElementById("configPreview").textContent =
-        "name,email,password,level,city,booking_datetime,dob,place_of_birth,address,phone\n" +
-        data.students.map(s => `${s.name},${s.email},${s.password},${s.level||s.exam_level||''},${s.city},${s.booking_datetime},${s.dob||''},${s.place_of_birth||''},${s.address||''},${s.phone||''}`).join("\n");
+        "name,email,password,level,city,booking_datetime,...\n" +
+        data.students.map(s => `${s.name},${s.email},${s.password},${s.level||s.exam_level||''},${s.city},${s.booking_datetime}`).join("\n");
     } else {
       document.getElementById("configInfo").textContent = "⚠ No students on server. Upload a config.csv";
+      document.getElementById("studentGrid").innerHTML = '<div class="empty-state">No students loaded</div>';
     }
-  } catch (e) {
-    document.getElementById("configInfo").textContent = "❌ Failed to load config";
-  }
+  } catch { document.getElementById("configInfo").textContent = "❌ Failed to load config"; }
 }
 
 async function uploadConfig(event) {
@@ -361,24 +453,21 @@ async function uploadConfig(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async function(e) {
-    const csvContent = e.target.result;
     try {
       const resp = await fetch(`${BASE}/api/config/upload`, {
-        method: "POST",
-        headers: {"Content-Type": "text/plain"},
-        body: csvContent,
+        method: "POST", headers: {"Content-Type": "text/plain"}, body: e.target.result,
         signal: AbortSignal.timeout(10000),
       });
       const data = await resp.json();
       if (data.ok) {
         document.getElementById("configInfo").textContent = `✅ ${data.count} student(s) uploaded`;
-        document.getElementById("configPreview").textContent = csvContent;
+        document.getElementById("configPreview").textContent = e.target.result;
         await loadConfigFromBackend();
       } else {
         document.getElementById("configInfo").textContent = "❌ " + (data.error || "Upload failed");
       }
     } catch (err) {
-      document.getElementById("configInfo").textContent = "❌ Upload error: " + err.message;
+      document.getElementById("configInfo").textContent = "❌ Upload error";
     }
   };
   reader.readAsText(file);
@@ -387,7 +476,7 @@ async function uploadConfig(event) {
 
 function toggleConfigPreview() {
   const el = document.getElementById("configPreview");
-  el.style.display = el.style.display === "none" ? "" : "none";
+  el.style.display = el.style.display === "none" ? "block" : "none";
 }
 
 // ── Start / Stop ──
@@ -400,122 +489,26 @@ async function startBot() {
   };
   try {
     const resp = await fetch(`${BASE}/api/start`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000),
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body), signal: AbortSignal.timeout(10000),
     });
     const data = await resp.json();
     if (!data.ok) return alert("Error: " + data.error);
     document.getElementById("logBox").innerHTML = "";
     document.getElementById("resultsCard").style.display = "none";
+    document.getElementById("resultsEmpty").style.display = "";
     startSSE();
-  } catch (e) {
-    alert("Failed to start: " + e.message);
-  }
+  } catch (e) { alert("Failed: " + e.message); }
 }
 
 async function stopBot() {
   if (!connected) return;
   try {
     await fetch(`${BASE}/api/stop`, { method: "POST", signal: AbortSignal.timeout(5000) });
-    document.getElementById("statusText").textContent = "Stopping...";
     closeSSE();
     setTimeout(loadResults, 2000);
-  } catch (e) {
-    alert("Failed to stop: " + e.message);
-  }
+  } catch (e) { alert("Stop failed: " + e.message); }
 }
-
-// ── Schedule ──
-async function loadSchedule() {
-  if (!connected) return;
-  try {
-    const resp = await fetch(`${BASE}/api/schedule`, { signal: AbortSignal.timeout(5000) });
-    const data = await resp.json();
-    if (!data || data.length === 0) {
-      document.getElementById("scheduleBody").innerHTML = '<span style="color:#6c7086;">No schedule data available</span>';
-      return;
-    }
-    // Group by level
-    const levels = ["A1","A2","B1"];
-    let html = "";
-    for (const lv of levels) {
-      const items = data.filter(s => s.level === lv);
-      if (items.length === 0) continue;
-      html += `<div style="margin-bottom:10px;"><b style="color:#89b4fa;font-size:13px;">${lv}</b>`;
-      html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px;">`;
-      html += `<tr style="color:#6c7086;font-size:10px;text-transform:uppercase;">
-        <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #313244;">City</th>
-        <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #313244;">Exam Date</th>
-        <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #313244;">Registration</th>
-        <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #313244;">Bookable</th>
-        <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #313244;">Price</th>
-        <th style="text-align:left;padding:4px 6px;border-bottom:1px solid #313244;">Status</th>
-      </tr>`;
-      for (const s of items) {
-        const statColor = s.status === "fully_booked" ? "#f38ba8" : s.status === "upcoming" ? "#a6e3a1" : "#6c7086";
-        const statLabel = s.status === "fully_booked" ? "❌ Fully booked" : "✅ Open";
-        html += `<tr>
-          <td style="padding:4px 6px;border-bottom:1px solid #252536;">${escHtml(s.city)}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #252536;">${escHtml(s.exam_date)}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #252536;">${escHtml(s.registration_period)}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #252536;">${escHtml(s.bookable_from)}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #252536;">${escHtml(s.price_full)}</td>
-          <td style="padding:4px 6px;border-bottom:1px solid #252536;color:${statColor};">${statLabel}</td>
-        </tr>`;
-      }
-      html += `</table></div>`;
-    }
-    document.getElementById("scheduleBody").innerHTML = html;
-  } catch (e) {
-    document.getElementById("scheduleBody").innerHTML = '<span style="color:#f38ba8;">Failed to load schedule</span>';
-  }
-}
-
-async function loadResults() {
-  try {
-    const resp = await fetch(`${BASE}/api/results`, { signal: AbortSignal.timeout(5000) });
-    const results = await resp.json();
-    if (results.length === 0) return;
-    document.getElementById("resultsCard").style.display = "";
-    document.getElementById("resultsBody").innerHTML = results.map(r => {
-      const ref = r.reference || "";
-      const emoji = r.status === "confirmed" ? "✅" : r.status === "submitted" ? "✅" : r.status === "stopped" ? "⛔" : "❌";
-      return `<tr><td>${escHtml(r.name)}</td><td>${emoji} ${r.status}</td><td>${escHtml(ref)}</td></tr>`;
-    }).join("");
-  } catch { /* ignore */ }
-}
-
-// ── SSE Logs ──
-function startSSE() {
-  closeSSE();
-  evtSource = new EventSource(`${BASE}/api/logs`);
-  evtSource.onmessage = function(e) {
-    try {
-      const data = JSON.parse(e.data);
-      if (data.type === "heartbeat") return;
-      appendLog(data);
-    } catch { /* ignore */ }
-  };
-  evtSource.onerror = function() { /* auto-reconnect */ };
-}
-
-function closeSSE() {
-  if (evtSource) { evtSource.close(); evtSource = null; }
-}
-
-function appendLog(data) {
-  const box = document.getElementById("logBox");
-  const div = document.createElement("div");
-  div.className = `log-entry log-${data.level || "INFO"}`;
-  div.textContent = data.message || "";
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
-  while (box.children.length > 500) box.removeChild(box.firstChild);
-}
-
-function clearLog() { document.getElementById("logBox").innerHTML = ""; }
 
 // ── Schedule ──
 async function scheduleStart() {
@@ -524,13 +517,11 @@ async function scheduleStart() {
   try {
     const resp = await fetch(`${BASE}/api/schedule-start`, {
       method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({datetime: dt + ":00"}),
-      signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({datetime: dt + ":00"}), signal: AbortSignal.timeout(5000),
     });
     const data = await resp.json();
-    if (data.ok) document.getElementById("scheduleStatus").textContent = "✅ Scheduled for " + dt;
-    else alert(data.error);
-  } catch(e) { alert("Schedule failed: " + e.message); }
+    document.getElementById("scheduleStatus").textContent = data.ok ? "✅ Scheduled for " + dt : "❌ " + data.error;
+  } catch(e) { alert("Schedule failed"); }
 }
 
 async function cancelSchedule() {
@@ -548,7 +539,76 @@ async function loadScheduleStatus() {
   } catch { /* ignore */ }
 }
 
-// ── Notification settings persistence ──
+// ── Schedule Data ──
+async function loadSchedule() {
+  if (!connected) return;
+  try {
+    const resp = await fetch(`${BASE}/api/schedule`, { signal: AbortSignal.timeout(5000) });
+    const data = await resp.json();
+    if (!data || data.length === 0) {
+      document.getElementById("scheduleBody").innerHTML = '<span style="color:var(--muted);">No data</span>'; return;
+    }
+    const levels = ["A1","A2","B1"];
+    let html = "";
+    for (const lv of levels) {
+      const items = data.filter(s => s.level === lv);
+      if (!items.length) continue;
+      html += `<div class="sched-group"><h4>${lv}</h4><table class="sched-table">`;
+      html += `<tr><th>City</th><th>Exam</th><th>Bookable</th><th>Price</th><th>Status</th></tr>`;
+      for (const s of items) {
+        const open = s.status !== "fully_booked";
+        html += `<tr><td>${escHtml(s.city)}</td><td>${escHtml(s.exam_date)}</td><td>${escHtml(s.bookable_from)}</td><td>${escHtml(s.price_full)}</td><td><span class="tag ${open?'tag-open':'tag-closed'}">${open ? '✅ Open' : '❌ Full'}</span></td></tr>`;
+      }
+      html += `</table></div>`;
+    }
+    document.getElementById("scheduleBody").innerHTML = html;
+  } catch { document.getElementById("scheduleBody").innerHTML = '<span style="color:var(--red);">Failed</span>'; }
+}
+
+// ── Results ──
+async function loadResults() {
+  try {
+    const resp = await fetch(`${BASE}/api/results`, { signal: AbortSignal.timeout(5000) });
+    const results = await resp.json();
+    if (!results.length) return;
+    document.getElementById("resultsCard").style.display = "";
+    document.getElementById("resultsEmpty").style.display = "none";
+    document.getElementById("resultsBody").innerHTML = results.map(r => {
+      const em = r.status === "confirmed" ? "✅" : r.status === "submitted" ? "✅" : r.status === "stopped" ? "⛔" : "❌";
+      return `<tr><td>${escHtml(r.name)}</td><td>${em} ${r.status}</td><td>${escHtml(r.reference||'')}</td></tr>`;
+    }).join("");
+  } catch { /* ignore */ }
+}
+
+// ── SSE Logs ──
+function startSSE() {
+  closeSSE();
+  evtSource = new EventSource(`${BASE}/api/logs`);
+  evtSource.onmessage = function(e) {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === "heartbeat") return;
+      appendLog(data);
+    } catch { /* ignore */ }
+  };
+  evtSource.onerror = function() {};
+}
+
+function closeSSE() { if (evtSource) { evtSource.close(); evtSource = null; } }
+
+function appendLog(data) {
+  const box = document.getElementById("logBox");
+  const div = document.createElement("div");
+  div.className = `log-${data.level || "INFO"}`;
+  div.textContent = data.message || "";
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  while (box.children.length > 300) box.removeChild(box.firstChild);
+}
+
+function clearLog() { document.getElementById("logBox").innerHTML = ""; }
+
+// ── Notification settings ──
 function loadNotificationSettings() {
   const t = localStorage.getItem("tg_token");
   if (t) document.getElementById("tgToken").value = t;
