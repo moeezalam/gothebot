@@ -25,6 +25,7 @@ EMAIL_TO = os.environ.get("EMAIL_TO", "")
 WHAPI_TOKEN = os.environ.get("WHAPI_TOKEN", "")
 WHAPI_PHONE = os.environ.get("WHAPI_PHONE", "")  # Your WhatsApp number
 WHAPI_TO = os.environ.get("WHAPI_TO", "")  # Recipient WhatsApp number
+WHAPI_BASE = os.environ.get("WHAPI_BASE", "https://gate.whapi.cloud")
 
 
 def send_telegram(message: str, logger: logging.Logger) -> bool:
@@ -65,7 +66,7 @@ def send_whatsapp(message: str, logger: logging.Logger) -> bool:
     if not all([WHAPI_TOKEN, WHAPI_PHONE, WHAPI_TO]):
         return False
     try:
-        url = "https://api.whapi.cloud/messages/text"
+        url = f"{WHAPI_BASE}/messages/text"
         headers = {
             "Authorization": f"Bearer {WHAPI_TOKEN}",
             "Content-Type": "application/json",
