@@ -16,10 +16,13 @@ Frontend connects via Backend URL input.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 import os
 import queue
+import secrets
 import sys
 import threading
 import time
@@ -37,6 +40,24 @@ import booking_helper as bot
 import db
 
 app = Flask(__name__)
+
+# ── Auth config ──
+AUTH_EMAIL = os.environ.get("AUTH_EMAIL", "admin@example.com")
+AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "ADMIN_PASSWORD_REDACTED")
+AUTH_SALT = os.environ.get("AUTH_SALT", "goethe-bot-salt-2026")
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "admin@example.com")
+
+def _make_token(email: str) -> str:
+    raw = f"{email}:{AUTH_SALT}:{int(time.time() / 86400)}"
+    return hmac.new(AUTH_SALT.encode(), raw.encode(), hashlib.sha256).hexdigest()
+
+def _check_auth():
+    auth = request.headers.get("Authorization", "")
+    token = auth.removeprefix("Bearer ").strip()
+    if not token:
+        return False
+    expected = _make_token(AUTH_EMAIL)
+    return hmac.compare_digest(token, expected)
 
 # ── Global state ──
 bot_stop_event = threading.Event()
@@ -153,9 +174,43 @@ def run_students_web(students: List[Dict], headless: bool, immediate: bool = Fal
 @app.after_request
 def add_cors(resp):
     resp.headers["Access-Control-Allow-Origin"] = "*"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    if flask.request.method == "OPTIONS":
+        resp.status_code = 200
     return resp
+
+
+# ── Auth routes ──
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.get_json(silent=True) or {}
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    if email == AUTH_EMAIL.lower() and password == AUTH_PASSWORD:
+        return jsonify({"ok": True, "token": _make_token(AUTH_EMAIL), "email": AUTH_EMAIL})
+    return jsonify({"ok": False, "error": "Invalid email or password"}), 401
+
+
+@app.route("/api/forgot-password", methods=["POST"])
+def api_forgot_password():
+    data = request.get_json(silent=True) or {}
+    email = data.get("email", "").strip().lower()
+    if email == AUTH_EMAIL.lower():
+        return jsonify({"ok": True, "message": f"Reset link sent to {SUPPORT_EMAIL}"})
+    return jsonify({"ok": True, "message": "If that email is registered, a reset link has been sent"})
+
+
+def require_auth(f):
+    """Decorator to require valid auth token."""
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if _check_auth():
+            return f(*args, **kwargs)
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    return decorated
 
 
 # ── Routes ──
@@ -167,6 +222,7 @@ def health():
 
 
 @app.route("/api/status")
+@require_auth
 def api_status():
     return jsonify({
         "running": bot_running,
@@ -187,6 +243,7 @@ def api_status():
 
 
 @app.route("/api/config", methods=["GET"])
+@require_auth
 def api_get_config():
     students = _get_loaded_students()
     return jsonify({
@@ -200,6 +257,7 @@ def api_get_config():
 
 
 @app.route("/api/config/load", methods=["POST"])
+@require_auth
 def api_load_config():
     global config_path
     data = request.get_json(silent=True) or {}
@@ -215,6 +273,7 @@ def api_load_config():
 
 
 @app.route("/api/config/upload", methods=["POST"])
+@require_auth
 def api_config_upload():
     global config_path
     csv_content = request.get_data(as_text=True)
@@ -232,6 +291,7 @@ def api_config_upload():
 
 
 @app.route("/api/start", methods=["POST"])
+@require_auth
 def api_start():
     global bot_thread
 
@@ -273,6 +333,7 @@ def api_start():
 
 
 @app.route("/api/stop", methods=["POST"])
+@require_auth
 def api_stop():
     if not bot_running:
         return jsonify({"ok": False, "error": "Bot is not running"}), 400
@@ -282,6 +343,14 @@ def api_stop():
 
 @app.route("/api/logs")
 def api_logs():
+    # SSE needs token via query param (EventSource doesn't support custom headers)
+    query_token = request.args.get("token", "")
+    if query_token:
+        expected = _make_token(AUTH_EMAIL)
+        if not hmac.compare_digest(query_token, expected):
+            return jsonify({"ok": False, "error": "Unauthorized"}), 401
+    elif not _check_auth():
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
     def generate():
         while True:
             try:
@@ -296,11 +365,13 @@ def api_logs():
 
 
 @app.route("/api/results")
+@require_auth
 def api_results():
     return jsonify(student_results)
 
 
 @app.route("/api/schedule")
+@require_auth
 def api_schedule():
     return jsonify(bot.get_schedule())
 
@@ -332,6 +403,7 @@ def scheduler_loop(target_iso: str):
 
 
 @app.route("/api/schedule-start", methods=["POST"])
+@require_auth
 def api_schedule_start():
     global scheduled_start, scheduler_thread, scheduler_stop
     data = request.get_json(silent=True) or {}
@@ -351,6 +423,7 @@ def api_schedule_start():
 
 
 @app.route("/api/schedule-status")
+@require_auth
 def api_schedule_status():
     return jsonify({
         "scheduled": scheduled_start is not None,
@@ -359,6 +432,7 @@ def api_schedule_status():
 
 
 @app.route("/api/schedule-cancel", methods=["POST"])
+@require_auth
 def api_schedule_cancel():
     global scheduled_start
     scheduler_stop.set()
@@ -369,11 +443,13 @@ def api_schedule_cancel():
 # ── Database-backed endpoints ──
 
 @app.route("/api/db/students")
+@require_auth
 def api_db_students():
     return jsonify(db.get_students())
 
 
 @app.route("/api/db/logs")
+@require_auth
 def api_db_logs():
     student_key = request.args.get("student_key", "")
     limit = int(request.args.get("limit", 200))

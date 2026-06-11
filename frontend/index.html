@@ -207,6 +207,33 @@
     max-height: 150px; overflow: auto; margin-top: 8px; white-space: pre; line-height: 1.4; display: none;
   }
 
+  /* Login overlay */
+  .login-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg); display: flex; align-items: center; justify-content: center;
+  }
+  .login-overlay.hidden { display: none; }
+  .login-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 40px; width: 380px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .login-card .logo-icon {
+    width: 56px; height: 56px; border-radius: 14px; font-size: 28px;
+    margin: 0 auto 12px;
+  }
+  .login-card h2 { text-align: center; font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .login-card p { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .login-card input {
+    width: 100%; padding: 10px 14px; margin-bottom: 12px; font-size: 14px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); outline: none; box-sizing: border-box;
+  }
+  .login-card input:focus { border-color: var(--accent); }
+  .login-card .btn { width: 100%; justify-content: center; padding: 11px; font-size: 14px; margin-bottom: 12px; }
+  .login-error { color: var(--red); font-size: 12px; text-align: center; margin-bottom: 8px; min-height: 18px; }
+  .forgot-link { text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .forgot-link:hover { color: var(--accent2); }
+
   /* Footer */
   .footer { text-align: center; color: var(--muted); font-size: 11px; padding: 20px 0 10px; border-top: 1px solid var(--border); margin-top: 24px; }
 </style>
@@ -225,6 +252,20 @@
       <span id="statusText">Disconnected</span>
     </div>
   </header>
+
+  <!-- Login overlay -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="logo-icon" style="display:flex;align-items:center;justify-content:center;">G</div>
+      <h2>Goethe Bot</h2>
+      <p>Sign in to access the dashboard</p>
+      <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
+      <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="loginError" class="login-error"></div>
+      <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+      <div class="forgot-link" onclick="doForgotPassword()">Forgot password?</div>
+    </div>
+  </div>
 
   <!-- Connection -->
   <div class="conn-bar">
@@ -335,11 +376,65 @@ let running = false;
 let evtSource = null;
 let statusPollTimer = null;
 let connected = false;
+let authToken = localStorage.getItem("auth_token") || "";
+
+// ── Auth helpers ──
+function apiFetch(url, opts = {}) {
+  const headers = opts.headers || {};
+  if (authToken) headers["Authorization"] = "Bearer " + authToken;
+  opts.headers = headers;
+  return fetch(url, opts).then(r => {
+    if (r.status === 401) {
+      authToken = "";
+      localStorage.removeItem("auth_token");
+      document.getElementById("loginOverlay").classList.remove("hidden");
+      return Promise.reject(new Error("Unauthorized"));
+    }
+    return r;
+  });
+}
+
+async function doLogin() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const errEl = document.getElementById("loginError");
+  errEl.textContent = "";
+  try {
+    const resp = await fetch(`${BASE}/api/login`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({email, password: pass}),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await resp.json();
+    if (!data.ok) { errEl.textContent = data.error || "Login failed"; return; }
+    authToken = data.token;
+    localStorage.setItem("auth_token", authToken);
+    document.getElementById("loginOverlay").classList.add("hidden");
+    connectBackend();
+  } catch (e) { errEl.textContent = "Connection error: " + e.message; }
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById("loginEmail").value.trim();
+  if (!email) { document.getElementById("loginError").textContent = "Enter your email first"; return; }
+  try {
+    const resp = await fetch(`${BASE}/api/forgot-password`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({email}),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await resp.json();
+    document.getElementById("loginError").textContent = data.message || "Check your email for reset link";
+  } catch (e) { document.getElementById("loginError").textContent = "Error: " + e.message; }
+}
 
 // ── Init ──
 document.getElementById("backendUrl").value = BASE;
 loadNotificationSettings();
-connectBackend();
+if (authToken) {
+  document.getElementById("loginOverlay").classList.add("hidden");
+  connectBackend();
+}
 
 // ── Connection ──
 async function connectBackend() {
@@ -349,7 +444,7 @@ async function connectBackend() {
   statusEl.textContent = "Connecting...";
   statusEl.className = "status-text";
   try {
-    const resp = await fetch(`${BASE}/api/status`, { signal: AbortSignal.timeout(5000) });
+    const resp = await apiFetch(`${BASE}/api/status`, { signal: AbortSignal.timeout(5000) });
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     connected = true;
     statusEl.textContent = "✅ Connected";
@@ -377,7 +472,7 @@ function startStatusPoll() {
 async function fetchStatus() {
   if (!connected) return;
   try {
-    const resp = await fetch(`${BASE}/api/status`, { signal: AbortSignal.timeout(4000) });
+    const resp = await apiFetch(`${BASE}/api/status`, { signal: AbortSignal.timeout(4000) });
     const data = await resp.json();
     updateBadge(data.running);
     toggleButtons(data.running);
@@ -438,7 +533,7 @@ function getColor(c) {
 async function loadConfigFromBackend() {
   if (!connected) return;
   try {
-    const resp = await fetch(`${BASE}/api/config`, { signal: AbortSignal.timeout(5000) });
+    const resp = await apiFetch(`${BASE}/api/config`, { signal: AbortSignal.timeout(5000) });
     const data = await resp.json();
     if (data.students && data.students.length > 0) {
       document.getElementById("configInfo").textContent = `✅ ${data.count} student(s) loaded`;
@@ -463,7 +558,7 @@ async function uploadConfig(event) {
   const reader = new FileReader();
   reader.onload = async function(e) {
     try {
-      const resp = await fetch(`${BASE}/api/config/upload`, {
+      const resp = await apiFetch(`${BASE}/api/config/upload`, {
         method: "POST", headers: {"Content-Type": "text/plain"}, body: e.target.result,
         signal: AbortSignal.timeout(10000),
       });
@@ -497,7 +592,7 @@ async function startBot() {
     const dt = document.getElementById("scheduleDt").value;
     if (!dt) return alert("Select a date/time for the schedule");
     try {
-      const resp = await fetch(`${BASE}/api/schedule-start`, {
+      const resp = await apiFetch(`${BASE}/api/schedule-start`, {
         method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({datetime: dt + ":00"}), signal: AbortSignal.timeout(5000),
       });
@@ -515,7 +610,7 @@ async function startBot() {
     telegram_chat_id: document.getElementById("tgChatId").value.trim(),
   };
   try {
-    const resp = await fetch(`${BASE}/api/start`, {
+    const resp = await apiFetch(`${BASE}/api/start`, {
       method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify(body), signal: AbortSignal.timeout(10000),
     });
@@ -531,7 +626,7 @@ async function startBot() {
 async function stopBot() {
   if (!connected) return;
   try {
-    await fetch(`${BASE}/api/stop`, { method: "POST", signal: AbortSignal.timeout(5000) });
+    await apiFetch(`${BASE}/api/stop`, { method: "POST", signal: AbortSignal.timeout(5000) });
     closeSSE();
     setTimeout(loadResults, 2000);
   } catch (e) { alert("Stop failed: " + e.message); }
@@ -555,7 +650,7 @@ async function scheduleStart() {
   const dt = document.getElementById("scheduleDt").value;
   if (!dt) return alert("Select a date/time");
   try {
-    const resp = await fetch(`${BASE}/api/schedule-start`, {
+    const resp = await apiFetch(`${BASE}/api/schedule-start`, {
       method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({datetime: dt + ":00"}), signal: AbortSignal.timeout(5000),
     });
@@ -566,14 +661,14 @@ async function scheduleStart() {
 
 async function cancelSchedule() {
   try {
-    await fetch(`${BASE}/api/schedule-cancel`, { method: "POST", signal: AbortSignal.timeout(5000) });
+    await apiFetch(`${BASE}/api/schedule-cancel`, { method: "POST", signal: AbortSignal.timeout(5000) });
     document.getElementById("scheduleStatus").textContent = "⛔ Cancelled";
   } catch { /* ignore */ }
 }
 
 async function loadScheduleStatus() {
   try {
-    const resp = await fetch(`${BASE}/api/schedule-status`, { signal: AbortSignal.timeout(5000) });
+    const resp = await apiFetch(`${BASE}/api/schedule-status`, { signal: AbortSignal.timeout(5000) });
     const data = await resp.json();
     if (data.scheduled) {
       document.getElementById("scheduleStatus").textContent = "⏳ Scheduled for " + data.datetime;
@@ -586,7 +681,7 @@ async function loadScheduleStatus() {
 async function loadSchedule() {
   if (!connected) return;
   try {
-    const resp = await fetch(`${BASE}/api/schedule`, { signal: AbortSignal.timeout(5000) });
+    const resp = await apiFetch(`${BASE}/api/schedule`, { signal: AbortSignal.timeout(5000) });
     const data = await resp.json();
     if (!data || data.length === 0) {
       document.getElementById("scheduleBody").innerHTML = '<span style="color:var(--muted);">No data</span>'; return;
@@ -611,7 +706,7 @@ async function loadSchedule() {
 // ── Results ──
 async function loadResults() {
   try {
-    const resp = await fetch(`${BASE}/api/results`, { signal: AbortSignal.timeout(5000) });
+    const resp = await apiFetch(`${BASE}/api/results`, { signal: AbortSignal.timeout(5000) });
     const results = await resp.json();
     if (!results.length) return;
     document.getElementById("resultsCard").style.display = "";
@@ -626,7 +721,7 @@ async function loadResults() {
 // ── SSE Logs ──
 function startSSE() {
   closeSSE();
-  evtSource = new EventSource(`${BASE}/api/logs`);
+  evtSource = new EventSource(`${BASE}/api/logs?token=${encodeURIComponent(authToken)}`);
   evtSource.onmessage = function(e) {
     try {
       const data = JSON.parse(e.data);
