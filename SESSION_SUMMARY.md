@@ -1,95 +1,50 @@
-# Goethe Booking Bot — Session Summary (Updated 11 Jun 2026 v5 — Speed Testing)
+# Goethe Booking Bot — Session Summary (Updated 11 Jun 2026)
 
 ## Project
 Automated bot for booking Goethe-Institut Pakistan German language exams (A1, A2, B1) — multi-student, multi-city.
 
-## Session Files (new this session)
-| File | Purpose |
-|------|---------|
-| `C:\Users\brosp\AppData\Local\Temp\opencode\make_pdf.py` | PDF presentation generator (fpdf2 + Inter font) |
-| `C:\Users\brosp\Downloads\Goethe Bot Presentation.pdf` | Client pitch presentation for Hamza (12 slides, v6) |
-| `C:\Users\brosp\AppData\Local\Temp\opencode\Inter-Regular.ttf` | Inter Regular font (downloaded from Google Fonts) |
-| `C:\Users\brosp\AppData\Local\Temp\opencode\Inter-Bold.ttf` | Inter Bold font (downloaded from Google Fonts) |
-| `C:\Users\brosp\Downloads\goethe-mock\mock_server.py` | Flask-based mock server (alternative to static Netlify) |
-| `C:\Users\brosp\Downloads\goethe-mock\test_bot.py` | Test runner — runs bot against local mock server |
-| `C:\Users\brosp\Downloads\goethe-mock\frontend\*.html` | Static HTML mock pages (deployed to Netlify) |
-| `C:\Users\brosp\Downloads\goethe-mock\config-1student.csv` | 1-student config for testing |
-
 ## User
 - GitHub: `abeermeer`
-- Goethe My Goethe.de: `student@example.com` / `GOETHE_PASSWORD_REDACTED`
-- 3 students: A1 Karachi, A2 Lahore, B1 Karachi
-- A1 & B1 Karachi + A2 Lahore bookable from July 17, 2026
+- Goethe credentials: `student@example.com` / `GOETHE_PASSWORD_REDACTED`
+- 3 students: A1 Karachi (10:00), A2 Lahore (10:05), B1 Karachi (10:10)
+- All bookable from July 17, 2026
 - Python: `C:\Users\brosp\AppData\Local\Programs\Python\Python312\python.exe`
-- Project dir: `C:\Users\brosp\Downloads\goethe-bot` (also `AppData\Local\Temp\opencode\goethe-bot`)
+- Project dir: `C:\Users\brosp\Downloads\goethe-bot`
 - Platform: Windows
 
-## Deployments
+## Deployments (all currently live)
 | Service | URL | Status |
 |---------|-----|--------|
 | **Frontend (Netlify)** | https://aesthetic-alpaca-769b17.netlify.app | ✅ Live |
-| **Backend (Railway)** | https://goethe-booking-bot-production-a6a6.up.railway.app | ✅ Online (fixed) |
-| **GitHub** | https://github.com/abeermeer/goethe-booking-bot | ✅ Latest code pushed |
-| **Custom Domain** | User purchased a domain — needs to connect to Netlify | ⏳ Pending |
+| **Backend (Railway)** | https://goethe-booking-bot-production-a6a6.up.railway.app | ✅ Online |
+| **Mock Site (Netlify)** | https://goethe-bot-mock.netlify.app | ✅ Live |
+| **GitHub** | https://github.com/abeermeer/goethe-booking-bot | ✅ Latest pushed |
 
-## Presentation
-- **File:** `C:\Users\brosp\Downloads\Goethe Bot Presentation.pdf` (client pitch for Hamza)
-- **Font:** Inter (embedded) — `C:\Users\brosp\AppData\Local\Temp\opencode\Inter-*.ttf`
-- **Generator script:** `C:\Users\brosp\AppData\Local\Temp\opencode\make_pdf.py`
-- **Latest version:** v6 — 12 slides, dark theme, professional design with dashboard mockup, phone+desktop mockup, workflow diagram, speed table, architecture flow
-- **Versions created:** v1 (basic) → v2 (bigger fonts, rounded corners) → v3 (fixed naming conflicts) → v4 (width-aware text, no overlap) → v5 (clean light theme) → v6 (advanced diagrams, mockups)
-- **Status:** User took the latest version, will finalize manually (adding images, fixing text overflow, adjusting font sizes)
+## Latest Changes (11 Jun v6 — Frontend Redesign)
 
-## What's Fixed This Session (11 Jun v1)
-- **Level field mismatch** — CSV header was `level` but code read `exam_level` → all students showed A1. Fixed: `student.get("level", student.get("exam_level", ""))` in booking_helper.py, webapp.py, gui.py, frontend
-- **Chrome OOM crash** — 3 Chrome instances on 512MB RAM killed each other at simultaneous launch. Fixed: auto-retry `create_driver` up to 3 times with 5s delay
-- **Logger handler overwrite** — all 3 students used logger name `bot_Abeer Meer`, causing `handlers.clear()` to drop logs from previous students. Fixed: unique logger names per student (`bot_{name}_{level}`)
-- **Status key collision** — `student_status` dict used `name` as key, so all 3 "Abeer Meer" entries overwrote each other. Fixed: compound key `name|level|city`
+### Frontend Redesign
+- Complete rewrite with modern dark theme (glassmorphism-inspired)
+- Color-coded student status cards with progress bars and step chips
+- Live status badge with animated pulsing dot (green=running, yellow=stopping, gray=idle, red=disconnected)
+- Responsive grid layout (2-col / 3-col), monospace terminal-style log viewer
+- **Actions + Schedule merged** — clean toggle at bottom: **Run Now** / **Schedule**
+  - Run Now → sends `immediate: true` to backend, bypasses all scheduling
+  - Schedule → reveals datetime picker, calls `/api/schedule-start`
+- Notifications card (Telegram token/chat ID, email, WhatsApp) — saves to localStorage
+- History table shows past booking results from DB
+- Exam Schedule table (fetches real Goethe schedule data via `/api/schedule`)
 
-## What's Done This Session (11 Jun v3 — Mock Server & Testing)
-- **Created mock Goethe website** (static HTML, deployed to Netlify) — simulates entire booking flow for A1/A2/B1
-  - Pages: Exam Finder → Continue → Book for Myself → CAS Login → Registration Form → Confirmation
-  - URL: https://goethe-bot-mock.netlify.app
-  - Local copy: `C:\Users\brosp\Downloads\goethe-mock\`
-- **Added env var override** in `booking_helper.py:58-62` — `MOCK_A1_URL`, `MOCK_A2_URL`, `MOCK_B1_URL`
-  - When set, bot uses mock URLs instead of real Goethe URLs
-  - To revert: delete these 3 env vars from Railway, remove the override code
-- **Set Railway env vars** to point to mock URLs for testing
-- **Redeployed backend** to Railway with updated code
-- **Note:** To test, open https://aesthetic-alpaca-769b17.netlify.app → connect to Railway backend → click Start Bot
+### `immediate` Flag Added
+- `booking_helper.py`: `smart_retry()` and `run_student_flow()` accept `immediate=True` to skip `scheduled_wait()`
+- `webapp.py`: `run_students_web()` and `/api/start` accept `immediate` from request
+- Frontend sends `immediate: true` in Run Now mode
+- **Before**: clicking Start Bot always waited until `booking_datetime` from CSV (July 17)
+- **Now**: Run Now starts instantly, Schedule still waits until target time
 
-## What's Done This Session (11 Jun v4 — Stale Element Fixes)
-- **Added stale element retry** to Steps 2-5:
-  - `click_continue_button` — retry 3x on StaleElementReferenceException
-  - `click_book_for_myself` — retry 3x on StaleElementReferenceException
-  - `login_to_goethe` — wrapped in `_login_attempt` with 3x retry
-  - `fill_registration_form` — wrapped in `_fill_attempt` with 3x retry
-- **Fixed orphaned exception handlers** after function split (indentation bug)
-- **1-student test passed** — A1 mock → full flow → confirmed ✅
-
-## What's Done This Session (11 Jun v5 — Speed Optimization)
-- Reduced `MIN_HUMAN_DELAY` 1.5→0.05, `MAX_HUMAN_DELAY` 5.5→0.2
-- `type_slowly` changed to instant paste (was per-char typing loop)
-- All step gaps reduced: 2.0-4.0s → 0.1-0.3s, 1.0-2.0s → 0.05-0.15s
-- `random_human_delay(1.0, 2.5)` → `(0.1, 0.3)`
-- **Result:** 1-student test dropped from ~1min to ~10-12s
-- **Speed mode is for mock testing only** — real Goethe site will detect this speed and ban
-- Created `config-1student.csv` in `C:\Users\brosp\Downloads\goethe-mock\`
-
-## What's Done This Session (11 Jun v2 — Presentation & Misc)
-- **Created client pitch presentation** for Hamza — 6 iterations (v1→v6) using fpdf2 + Inter font
-  - v1: basic text
-  - v2: bigger fonts, rounded corners
-  - v3: fixed naming conflicts with fpdf2 methods
-  - v4: width-aware text, zero overlap
-  - v5: clean light theme, simple
-  - v6: advanced dark theme with dashboard mockup, phone+desktop mockup, workflow diagram, speed table, architecture flow
-  - User took v6, will finalize manually (adding images, fixing text overflow, font sizes)
-- **Explained polling constants** in booking_helper.py — which timings control what, how to optimize, realistic limits
-- **Discussed testing strategy** — local test HTML page vs pointing to current bookable Goethe page
-- **Discussed frontend improvements** — current UI rated 5.5/10, may revisit later
-- **Made GitHub repo private** — repo is now PRIVATE, only user can see it
-- **No code changes to core project files** (booking_helper.py, webapp.py etc.)
+### Deployment Method
+- **Netlify**: `netlify deploy --prod --dir=frontend`
+- **Railway**: `railway up --detach` (linked, no env needed)
+- **Git**: `git add -A && git commit -m "..." && git push origin main`
 
 ## Current Config (3 students)
 | Name | Level | City | Booking DateTime |
@@ -98,92 +53,77 @@ Automated bot for booking Goethe-Institut Pakistan German language exams (A1, A2
 | Abeer Meer | A2 | Lahore | 2026-07-17T10:05:00 |
 | Abeer Meer | B1 | Karachi | 2026-07-17T10:10:00 |
 
-## Bot Behavior
-- Starts polling 10s before booking time (burst mode: every 2-3s)
-- Normal mode: polls every 45s
-- Finds "Book Now" button by text matching (book, next, buchen, weiter)
-- Clicks button → CAS login (My Goethe.de) → fills registration form → submits
-- Captures confirmation screenshot
-- Stops gracefully via stop event
-- Each student runs in separate thread with separate Chrome profile
-- Chrome auto-retries on launch failure (3 attempts, 5s apart)
-
 ## Key Files
 | File | Purpose |
 |------|---------|
-| `booking_helper.py` | Core bot engine (Selenium, multi-student, polling, retry logic) |
-| `webapp.py` | Flask backend API (start/stop/status/logs/results/schedule) |
-| `frontend/index.html` | Web dashboard (Netlify) |
-| `config.csv` | Student credentials (`.gitignore`'d) |
-| `Dockerfile` | Container definition (python:3.12-slim + google-chrome-stable) |
-| `gui.py` | Alternative Tkinter desktop GUI (not deployed) |
-| `SESSION_SUMMARY.md` | This file — full session memory for resume |
+| `booking_helper.py` | Core bot engine (1161 lines) — Selenium, multi-student, polling, retry, proxy, CAPTCHA, human behavior |
+| `webapp.py` | Flask backend API (start/stop/status/logs/results/schedule/DB) |
+| `frontend/index.html` | Web dashboard (Netlify) — modern dark theme UI |
+| `config.csv` | Student credentials (gitignored) |
+| `db.py` | SQLite persistence (students, logs, bot_state) |
+| `notifications.py` | Multi-channel notifications (Telegram, Email SMTP, WhatsApp WHAPI) |
+| `Dockerfile` | python:3.12-slim + google-chrome-stable |
+| `SESSION_SUMMARY.md` | This file |
 
-## CSV Format
-```
-name,email,password,level,city,booking_datetime,dob,place_of_birth,address,phone
-```
+## v2.0 Features (all deployed)
+- Human behavior simulation (random scroll, mouse wander, pause between fields)
+- Proxy rotation (PROXY_LIST env var, random assignment per student)
+- Fingerprint randomization (random user-agent + viewport from 5 profiles)
+- CAPTCHA solving (2Captcha integration — needs CAPTCHA_API_KEY env var)
+- Scheduled mode (dashboard Schedule card + `/api/schedule-*` endpoints)
+- Smart retry (on failure waits 30-60s, retries with new profile, up to MAX_SMART_RETRIES=2)
+- DB persistence (SQLite — students, logs, results; auto-initializes)
+- Multi-channel notifications (Telegram, Email SMTP, WhatsApp WHAPI)
+- All features behind env vars — zero config needed if unused
 
-## Registration Form Fields (confirmed by user)
-1. Name (single field)
-2. Date of Birth
-3. Place of Birth
-4. Address
-5. Phone number
-6. Level (A1/A2/B1 dropdown)
-
-## Selectors (confirmed)
-- `form_name` — single name input
-- `form_place_of_birth` — place of birth input
-- `form_level` — exam level dropdown
-- Removed unused: form_firstname, form_lastname, form_gender, form_nationality, form_passport, form_cnic, form_city
+## Testing
+- Mock site: https://goethe-bot-mock.netlify.app
+- 1-student mock test passed (A1 Karachi → confirmed)
+- To test: open frontend → connect to Railway → click Start Bot (Run Now)
 
 ## Known Issues
-1. Railway free tier (512MB) barely handles 3 Chrome instances — retry logic + stale element handling helps but upgrade to $5 Starter for reliability
-2. Max speed mode (0.05s delays, instant paste) is for mock only — real Goethe will detect and ban
-3. CSS selectors in mock are simplified — real Goethe page may have different selectors (verify on July 17)
+1. Railway 512MB free tier barely handles 3 Chrome instances — may need $5 Starter upgrade for reliability
+2. CAPTCHA solving needs CAPTCHA_API_KEY env var set to function
+3. Proxy rotation needs PROXY_LIST env var with valid proxies
+4. Email notifications need SMTP env vars, WhatsApp needs WHAPI credentials
 
 ## Pre-July 17 Checklist
-- [x] All code deployed to Railway
-- [x] config.csv uploaded to Railway backend (3 students restored)
-- [x] Frontend deployed to Netlify
-- [x] Mock Goethe site deployed (https://goethe-bot-mock.netlify.app) — tested successfully
-- [x] Mock env vars added → tested → **reverted** (MOCK_A1/A2/B1_URL deleted from Railway)
-- [x] Speed optimized for testing → **reverted** to original safe values
-- [x] Stale element retry added to all step functions (KEPT — permanent fix)
-- [x] 1-student mock test passed (A1 → confirmed, ~10-12s at fast speed)
-- [x] EXAM_URLS restored to real Goethe URLs (no env var override)
+- [x] v2.0 code deployed to Railway (human sim, proxy, fingerprint, CAPTCHA, smart retry, DB, notifications)
+- [x] Frontend redesigned and deployed to Netlify
+- [x] `immediate` flag added — Run Now works instantly, Schedule mode intact
+- [x] Mock site deployed and tested
+- [x] Railway linked to local repo for easy deploys
 - [ ] Connect custom domain to Netlify (CNAME or nameservers)
-- [ ] On July 17: open Netlify URL, click Start Bot 5-10 min before 10:00
+- [ ] Set Railway env vars: CAPTCHA_API_KEY, PROXY_LIST, SMTP_*, WHAPI_* (as needed)
+- [ ] On July 17: open Netlify URL → connect to Railway → click Start Bot ~10 min before 10:00
 
-## Netlify Deploy Token
-`NETLIFY_DEPLOY_TOKEN_REDACTED`
-Site ID: `NETLIFY_SITE_ID_REDACTED`
-
-## Railway Token & IDs
-- API Token: `1d7f1696-f7ca-4ffa-b00f-d53feb2caf3f`
-- Project ID: `6aee17f5-fe9f-4496-a02d-e5f366d37c2a`
-- Environment ID: `785a6cb2-284c-4e4a-b3cc-71afa8f24378`
-- Service ID: `783d4933-1de1-45b6-a198-08b6f07692cd`
+## Tokens & IDs (current — 11 Jun 2026)
+- Railway API Token: `RAILWAY_TOKEN_REDACTED`
+- Railway Project ID: `6aee17f5-fe9f-4496-a02d-e5f366d37c2a`
+- Railway Service ID: `783d4933-1de1-45b6-a198-08b6f07692cd`
+- Railway URL: `https://goethe-booking-bot-production-a6a6.up.railway.app`
+- Netlify Site ID: `NETLIFY_SITE_ID_REDACTED`
+- Netlify Deploy Token: `NETLIFY_DEPLOY_TOKEN_REDACTED`
+- Netlify URL: `https://aesthetic-alpaca-769b17.netlify.app`
+- Mock Netlify URL: `https://goethe-bot-mock.netlify.app`
+- Mock repo: `C:\Users\brosp\Downloads\goethe-mock`
 
 ## Commands
 ```powershell
-# Run locally
+# Run backend locally
 cd C:\Users\brosp\Downloads\goethe-bot
 python webapp.py
 
-# Deploy frontend
-$env:NETLIFY_AUTH_TOKEN = "NETLIFY_DEPLOY_TOKEN_REDACTED"
-netlify deploy --prod --dir frontend --site "NETLIFY_SITE_ID_REDACTED"
+# Deploy frontend to Netlify
+netlify deploy --prod --dir=frontend
 
 # Deploy backend to Railway
-$env:RAILWAY_API_TOKEN = "1d7f1696-f7ca-4ffa-b00f-d53feb2caf3f"
-railway up --detach --environment 785a6cb2-284c-4e4a-b3cc-71afa8f24378
+$env:RAILWAY_API_TOKEN = "RAILWAY_TOKEN_REDACTED"
+railway up --detach
 
-# Upload config to Railway
-$csv = Get-Content "config.csv" -Raw
-Invoke-RestMethod -Uri "https://goethe-booking-bot-production-a6a6.up.railway.app/api/config/upload" -Method POST -Body $csv -ContentType "text/plain"
+# Check Railway status
+railway status
 
-# Git
-git add -A; git commit -m "message"; git push
+# Git push
+git add -A; git commit -m "message"; git push origin main
 ```
