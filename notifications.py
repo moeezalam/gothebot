@@ -73,7 +73,6 @@ def send_whatsapp(message: str, logger: logging.Logger) -> bool:
         }
         payload = {
             "to": WHAPI_TO,
-            "from": WHAPI_PHONE,
             "body": message,
         }
         data = json.dumps(payload).encode()
