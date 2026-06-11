@@ -259,6 +259,7 @@
       <div class="logo-icon" style="display:flex;align-items:center;justify-content:center;">G</div>
       <h2>Goethe Bot</h2>
       <p>Sign in to access the dashboard</p>
+      <input type="text" id="loginBackendUrl" placeholder="Backend URL (e.g. https://railway...)" style="margin-bottom:8px;font-size:12px;">
       <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
       <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       <div id="loginError" class="login-error"></div>
@@ -395,10 +396,17 @@ function apiFetch(url, opts = {}) {
 }
 
 async function doLogin() {
+  const loginUrl = document.getElementById("loginBackendUrl").value.trim();
+  if (loginUrl) {
+    BASE = loginUrl.replace(/\/+$/, "");
+    document.getElementById("backendUrl").value = BASE;
+    localStorage.setItem("backend_url", BASE);
+  }
   const email = document.getElementById("loginEmail").value.trim();
   const pass = document.getElementById("loginPass").value;
   const errEl = document.getElementById("loginError");
   errEl.textContent = "";
+  if (!BASE) { errEl.textContent = "Enter the backend URL"; return; }
   try {
     const resp = await fetch(`${BASE}/api/login`, {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -430,6 +438,7 @@ async function doForgotPassword() {
 
 // ── Init ──
 document.getElementById("backendUrl").value = BASE;
+document.getElementById("loginBackendUrl").value = BASE;
 loadNotificationSettings();
 if (authToken) {
   document.getElementById("loginOverlay").classList.add("hidden");
