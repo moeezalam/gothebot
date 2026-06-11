@@ -1026,6 +1026,9 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
             raise RuntimeError("Step 1 failed after all retries")
 
         random_human_delay(2.0, 4.0)
+        if stop_event.is_set():
+            logger.warning("Stop requested by user. Aborting.")
+            result["status"] = "stopped"; return result
 
         logger.info("══ STEP 2: Clicking Continue ══")
         click_continue_button(driver, logger)
@@ -1033,6 +1036,9 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
         logger.info("★ STEP 2 DONE")
 
         random_human_delay(2.0, 4.0)
+        if stop_event.is_set():
+            logger.warning("Stop requested by user. Aborting.")
+            result["status"] = "stopped"; return result
 
         logger.info("══ STEP 3: Clicking Book for Myself ══")
         click_book_for_myself(driver, logger)
@@ -1040,6 +1046,9 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
         logger.info("★ STEP 3 DONE")
 
         random_human_delay(2.0, 4.0)
+        if stop_event.is_set():
+            logger.warning("Stop requested by user. Aborting.")
+            result["status"] = "stopped"; return result
 
         if email and password:
             logged_in = login_to_goethe(driver, email, password, logger)
@@ -1052,6 +1061,9 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
 
         random_human_delay(2.0, 4.0)
         random_scroll(driver)
+        if stop_event.is_set():
+            logger.warning("Stop requested by user. Aborting.")
+            result["status"] = "stopped"; return result
 
         # ── CAPTCHA check before form fill ──
         captcha_found = detect_captcha(driver)
