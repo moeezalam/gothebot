@@ -22,6 +22,8 @@ import os
 import queue
 import sys
 import threading
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -32,6 +34,7 @@ PROJECT_DIR = Path(__file__).parent.absolute()
 sys.path.insert(0, str(PROJECT_DIR))
 
 import booking_helper as bot
+import db
 
 app = Flask(__name__)
 
@@ -45,6 +48,11 @@ student_results: List[Dict] = []
 config_path: str = ""
 telegram_token: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 telegram_chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")
+
+# ── Scheduled mode ──
+scheduled_start: Optional[str] = None  # ISO datetime string
+scheduler_thread: Optional[threading.Thread] = None
+scheduler_stop = threading.Event()
 
 
 class WebLogHandler(logging.Handler):
@@ -60,6 +68,15 @@ class WebLogHandler(logging.Handler):
                      "name": record.name})
 
 
+class DbLogHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord):
+        try:
+            msg = self.format(record)
+            db.add_log(record.name, record.levelname, msg)
+        except Exception:
+            pass
+
+
 def setup_web_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
@@ -68,6 +85,7 @@ def setup_web_logger(name: str) -> logging.Logger:
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
     handler.setFormatter(fmt)
     logger.addHandler(handler)
+    logger.addHandler(DbLogHandler())
     return logger
 
 
@@ -79,6 +97,7 @@ def run_students_web(students: List[Dict], headless: bool):
     bot_stop_event.clear()
     bot_running = True
 
+    db.save_students(students)
     master_logger = setup_web_logger("web_bot")
     master_logger.info("Bot started with %d student(s)", len(students))
 
@@ -92,13 +111,15 @@ def run_students_web(students: List[Dict], headless: bool):
         student_logger = setup_web_logger(f"bot_{name}_{level}")
         student_status[key] = {"status": "Waiting...", "color": "warning", "details": "Polling for slot"}
 
-        result = bot.run_student_flow(
+        result = bot.smart_retry(
             s, use_headless=headless,
             logger=student_logger,
             stop_event=bot_stop_event,
         )
         with results_lock:
             student_results.append(result)
+
+        db.update_student_status(key, result.get("status", "failed"), result)
 
         status = result.get("status", "failed")
         if status == "confirmed":
@@ -280,6 +301,81 @@ def api_results():
 @app.route("/api/schedule")
 def api_schedule():
     return jsonify(bot.get_schedule())
+
+
+# ── Scheduled mode ──
+
+def scheduler_loop(target_iso: str):
+    global bot_running, scheduled_start, scheduler_thread
+    try:
+        target = datetime.fromisoformat(target_iso)
+    except Exception:
+        return
+    while not scheduler_stop.is_set():
+        now = datetime.now()
+        if now >= target:
+            break
+        remaining = (target - now).total_seconds()
+        gap = min(15, remaining)
+        scheduler_stop.wait(gap)
+    if not scheduler_stop.is_set():
+        scheduled_start = None
+        # Auto-start the bot
+        with app.app_context():
+            students = _get_loaded_students()
+            if students:
+                bot_stop_event.clear()
+                bot_thread = threading.Thread(target=run_students_web, args=(students, True), daemon=True)
+                bot_thread.start()
+
+
+@app.route("/api/schedule-start", methods=["POST"])
+def api_schedule_start():
+    global scheduled_start, scheduler_thread, scheduler_stop
+    data = request.get_json(silent=True) or {}
+    dt_str = data.get("datetime", "")
+    if not dt_str:
+        return jsonify({"ok": False, "error": "Missing datetime"}), 400
+    try:
+        datetime.fromisoformat(dt_str)
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid datetime format"}), 400
+
+    scheduler_stop.clear()
+    scheduled_start = dt_str
+    scheduler_thread = threading.Thread(target=scheduler_loop, args=(dt_str,), daemon=True)
+    scheduler_thread.start()
+    return jsonify({"ok": True, "message": f"Scheduled for {dt_str}"})
+
+
+@app.route("/api/schedule-status")
+def api_schedule_status():
+    return jsonify({
+        "scheduled": scheduled_start is not None,
+        "datetime": scheduled_start,
+    })
+
+
+@app.route("/api/schedule-cancel", methods=["POST"])
+def api_schedule_cancel():
+    global scheduled_start
+    scheduler_stop.set()
+    scheduled_start = None
+    return jsonify({"ok": True, "message": "Schedule cancelled"})
+
+
+# ── Database-backed endpoints ──
+
+@app.route("/api/db/students")
+def api_db_students():
+    return jsonify(db.get_students())
+
+
+@app.route("/api/db/logs")
+def api_db_logs():
+    student_key = request.args.get("student_key", "")
+    limit = int(request.args.get("limit", 200))
+    return jsonify(db.get_logs(student_key or None, limit))
 
 
 def _get_loaded_students() -> List[Dict]:

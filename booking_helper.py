@@ -19,16 +19,21 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import json
 import logging
 import os
 import random
 import re
+import string
 import sys
 import time
 import threading
+import urllib.parse
+import urllib.request
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import requests
 from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -51,8 +56,8 @@ try:
 except Exception:
     plyer_notify = None
 
-import urllib.request
-import urllib.parse
+import db
+import notifications
 
 # ── Exam level → page URL mapping ──
 EXAM_URLS = {
@@ -99,6 +104,19 @@ BURST_PRE_POLL = 5.0
 BURST_POST_POLL_MIN = 2.0
 BURST_POST_POLL_MAX = 3.0
 BURST_CRASH_RETRY = 1.5
+
+# ── Proxy list (for rotation) ──
+PROXY_LIST = [p.strip() for p in os.environ.get("PROXY_LIST", "").split(",") if p.strip()]
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+]
+VIEWPORTS = [(1920, 1080), (1366, 768), (1536, 864), (1440, 900), (1280, 720)]
+CAPTCHA_API_KEY = os.environ.get("CAPTCHA_API_KEY", "")
+MAX_SMART_RETRIES = int(os.environ.get("MAX_SMART_RETRIES", "2"))
 
 # ── Exam schedule (Pakistan 2026) ──
 EXAM_SCHEDULE = [
@@ -207,27 +225,31 @@ def notify(title: str, message: str, logger: logging.Logger) -> None:
             plyer_notify.notify(title=title, message=message, timeout=8)
         except Exception as exc:
             logger.warning("Desktop notification failed: %s", exc)
-    send_telegram(f"<b>{title}</b>\n{message}", logger)
+    notifications.notify_all(title, message, logger)
 
 
 _driver_counter = 0
 
-def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrome:
+def create_driver(use_headless: bool, logger: logging.Logger, proxy: Optional[str] = None) -> webdriver.Chrome:
     global _driver_counter
     _driver_counter += 1
     options = Options()
+
+    # ── Browser fingerprint randomization ──
+    ua = random.choice(USER_AGENTS)
+    vp = random.choice(VIEWPORTS)
+    options.add_argument(f"--user-agent={ua}")
     if os.name == "nt":
         if use_headless:
             options.add_argument("--headless=new")
-        options.add_argument("--start-maximized")
+        options.add_argument(f"--window-size={vp[0]},{vp[1]}")
     else:
-        # Auto-detect Chrome binary on Linux (multiple paths)
         for chrome_bin in ["/opt/google/chrome/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/google-chrome", "/usr/bin/chromium-browser", "/usr/bin/chromium"]:
             if Path(chrome_bin).exists():
                 options.binary_location = chrome_bin
                 break
         options.add_argument("--headless=new")
-        options.add_argument("--window-size=1920,1080")
+        options.add_argument(f"--window-size={vp[0]},{vp[1]}")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
@@ -240,6 +262,12 @@ def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrom
         options.add_argument("--no-first-run")
         os.environ["DBUS_SESSION_BUS_ADDRESS"] = "/dev/null"
         os.environ["DISPLAY"] = ":99"
+
+    # ── Proxy ──
+    if proxy:
+        logger.info("Using proxy: %s", proxy)
+        options.add_argument(f"--proxy-server={proxy}")
+
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--lang=en-US,en")
     options.add_experimental_option("prefs", {"intl.accept_languages": "en-US,en"})
@@ -247,7 +275,6 @@ def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrom
     profile_dir.mkdir(parents=True, exist_ok=True)
     options.add_argument(f"--user-data-dir={profile_dir}")
 
-    # Use system chromedriver on Linux if available (Alpine), else use webdriver-manager
     if os.name != "nt":
         system_driver = next((p for p in ["/usr/local/bin/chromedriver", "/usr/bin/chromedriver", "/usr/lib/chromium/chromedriver"] if Path(p).exists()), None)
         if system_driver:
@@ -272,6 +299,7 @@ def create_driver(use_headless: bool, logger: logging.Logger) -> webdriver.Chrom
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     except Exception:
         pass
+    logger.info("Driver created: UA=%s, VP=%sx%s%s", ua[:50], vp[0], vp[1], f", proxy={proxy}" if proxy else "")
     return driver
 
 
@@ -370,6 +398,162 @@ def human_move_and_click(driver: webdriver.Chrome, element: WebElement) -> None:
     actions.pause(random.uniform(0.1, 0.5))
     actions.click()
     actions.perform()
+
+
+# ── Advanced human behavior simulation ──
+
+def random_scroll(driver: webdriver.Chrome):
+    """Small random scroll to mimic reading."""
+    delta = random.randint(-150, 300)
+    driver.execute_script(f"window.scrollBy(0, {delta});")
+    time.sleep(random.uniform(0.3, 1.2))
+
+
+def random_mouse_wander(driver: webdriver.Chrome):
+    """Move mouse to a random location on the page."""
+    try:
+        body = driver.find_element(By.TAG_NAME, "body")
+        w = body.size.get("width", 800)
+        h = body.size.get("height", 600)
+        ox = random.randint(0, max(w - 100, 100))
+        oy = random.randint(0, max(h - 100, 100))
+        actions = ActionChains(driver)
+        actions.move_by_offset(ox, oy)
+        actions.pause(random.uniform(0.1, 0.4))
+        actions.perform()
+    except Exception:
+        pass
+
+
+def human_pause_between_fields():
+    """Pause as if user is reading the next field."""
+    time.sleep(random.uniform(0.4, 1.8))
+
+
+def simulate_human_typing(element: WebElement, text: str) -> None:
+    """Type text with realistic human-like bursts and pauses."""
+    element.clear()
+    element.click()
+    for ch in text:
+        element.send_keys(ch)
+        if random.random() < 0.08:
+            time.sleep(random.uniform(0.3, 0.9))
+        elif random.random() < 0.03:
+            time.sleep(random.uniform(1.0, 2.5))
+        else:
+            time.sleep(random.uniform(0.04, 0.15))
+
+
+# ── CAPTCHA solving (2Captcha) ──
+
+def detect_captcha(driver: webdriver.Chrome) -> Optional[str]:
+    """Check if a CAPTCHA iframe or element is on the page."""
+    captcha_selectors = [
+        "iframe[src*='recaptcha']", "iframe[src*='captcha']",
+        ".g-recaptcha", "#recaptcha", "[class*='captcha']",
+        "iframe[title*='captcha']",
+    ]
+    for css in captcha_selectors:
+        els = driver.find_elements(By.CSS_SELECTOR, css)
+        if els:
+            return css
+    return None
+
+
+def solve_captcha(driver: webdriver.Chrome, logger: logging.Logger) -> bool:
+    """Solve reCAPTCHA v2 using 2Captcha."""
+    if not CAPTCHA_API_KEY:
+        logger.warning("CAPTCHA detected but no CAPTCHA_API_KEY set")
+        return False
+    try:
+        site_key_el = driver.find_element(By.CSS_SELECTOR, ".g-recaptcha")
+        site_key = site_key_el.get_attribute("data-sitekey")
+        if not site_key:
+            return False
+        page_url = driver.current_url
+        logger.info("CAPTCHA site key found: %s", site_key)
+
+        resp = requests.post("https://2captcha.com/in.php", data={
+            "key": CAPTCHA_API_KEY, "method": "userrecaptcha",
+            "googlekey": site_key, "pageurl": page_url,
+            "json": 1,
+        }, timeout=30)
+        data = resp.json()
+        if data.get("status") != 1:
+            logger.warning("2Captcha send failed: %s", data)
+            return False
+        captcha_id = data["request"]
+
+        for _ in range(60):
+            time.sleep(5)
+            result = requests.get("https://2captcha.com/res.php", params={
+                "key": CAPTCHA_API_KEY, "action": "get", "id": captcha_id, "json": 1,
+            }, timeout=15).json()
+            if result.get("status") == 1:
+                token = result["request"]
+                driver.execute_script(
+                    f"document.getElementById('g-recaptcha-response').innerHTML='{token}';"
+                )
+                driver.execute_script(f"___grecaptcha_cfg.clients[0].callback('{token}');")
+                logger.info("CAPTCHA solved")
+                return True
+            if result.get("request") == "ERROR_CAPTCHA_UNSOLVABLE":
+                logger.warning("CAPTCHA unsolvable")
+                return False
+        logger.warning("CAPTCHA timeout")
+        return False
+    except Exception as exc:
+        logger.warning("CAPTCHA solve error: %s", exc)
+        return False
+
+
+# ── Proxy support in create_driver ──
+# Proxy is applied inside create_driver when a proxy string is passed
+
+# ── Smart retry wrapper ──
+
+def smart_retry(student: Dict[str, str], use_headless: bool, logger: logging.Logger,
+                stop_event: threading.Event, attempt: int = 1) -> Dict[str, str]:
+    """Run student flow with smart retry on failure (new profile, new proxy)."""
+    result = run_student_flow(student, use_headless, logger, stop_event)
+    status = result.get("status", "failed")
+    if status in ("failed", "error") and attempt <= MAX_SMART_RETRIES:
+        logger.warning("Smart retry %d/%d for %s", attempt, MAX_SMART_RETRIES, student.get("name", "?"))
+        time.sleep(random.uniform(30, 60))
+        result = smart_retry(student, use_headless, logger, stop_event, attempt + 1)
+    return result
+
+
+# ── Scheduled mode ──
+
+SCHEDULED_CHECK_INTERVAL = 30  # seconds
+
+def scheduled_wait(booking_time_str: str, logger: logging.Logger, stop_event: threading.Event) -> bool:
+    """Wait until the booking time arrives. Returns True if it's time."""
+    if not booking_time_str:
+        return True
+    try:
+        target = parse_exam_time_str(booking_time_str)
+    except Exception:
+        return True
+
+    logger.info("Scheduled mode: waiting until %s", target.strftime("%Y-%m-%d %H:%M:%S"))
+    while not stop_event.is_set():
+        now = dt.datetime.now()
+        if now >= target:
+            logger.info("Scheduled time reached, starting bot")
+            return True
+        remaining = (target - now).total_seconds()
+        if remaining <= 10:
+            logger.info("Less than 10s to go, entering burst mode")
+            time.sleep(0.5)
+        else:
+            gap = min(SCHEDULED_CHECK_INTERVAL, remaining / 2)
+            for _ in range(int(gap)):
+                if stop_event.is_set():
+                    return False
+                time.sleep(1)
+    return False
 
 
 def enforce_single_tab(driver: webdriver.Chrome) -> None:
@@ -708,7 +892,7 @@ def get_exam_url(level: str) -> str:
 
 
 def run_student_flow(student: Dict[str, str], use_headless: bool, logger: logging.Logger,
-                     stop_event: threading.Event = None) -> Dict[str, str]:
+                     stop_event: threading.Event = None, proxy: Optional[str] = None) -> Dict[str, str]:
     name = student.get("name", "Unknown")
     email = student.get("email", "")
     password = student.get("password", "")
@@ -718,6 +902,16 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
 
     if stop_event is None:
         stop_event = threading.Event()
+
+    # Scheduled mode: wait until booking time
+    if not scheduled_wait(booking_time_str, logger, stop_event):
+        return {"name": name, "email": email, "level": level, "city": city, "status": "stopped"}
+
+    # Pick a proxy for this student (rotation)
+    assigned_proxy = proxy
+    if not assigned_proxy and PROXY_LIST:
+        assigned_proxy = random.choice(PROXY_LIST)
+        logger.info("Assigned proxy: %s", assigned_proxy)
 
     logger.info("=" * 60)
     logger.info("STARTING STUDENT: %s | %s | %s | %s", name, email, level, city)
@@ -730,7 +924,7 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
     result = {"name": name, "email": email, "level": level, "city": city, "status": "failed"}
 
     try:
-        driver = create_driver(use_headless, logger)
+        driver = create_driver(use_headless, logger, proxy=assigned_proxy)
         logger.info("Monitoring URL: %s", exam_url)
         logger.info("Booking time: %s", booking_time_str)
         logger.info("Burst window: %s to %s",
@@ -853,6 +1047,13 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
             driver.save_screenshot(f"debug_no_creds_{name}.png")
 
         random_human_delay(2.0, 4.0)
+        random_scroll(driver)
+
+        # ── CAPTCHA check before form fill ──
+        captcha_found = detect_captcha(driver)
+        if captcha_found:
+            logger.info("CAPTCHA detected (%s), attempting to solve...", captcha_found)
+            solve_captcha(driver, logger)
 
         form_ok = fill_registration_form(driver, student, logger)
         if not form_ok:
@@ -860,12 +1061,13 @@ def run_student_flow(student: Dict[str, str], use_headless: bool, logger: loggin
             driver.save_screenshot(f"debug_form_{name}.png")
 
         random_human_delay(1.0, 2.0)
+        random_mouse_wander(driver)
 
         conf = capture_confirmation(driver, name, logger)
         result.update(conf)
         result["status"] = conf.get("status", "submitted")
 
-        notify(f"✅ Booking complete: {name}", f"{level} | {city} | Status: {result['status']}", logger)
+        notifications.notify_all(f"Booking complete: {name}", f"{level} | {city} | Status: {result['status']}", logger)
 
     except KeyboardInterrupt:
         logger.info("Interrupted by user.")
@@ -904,6 +1106,7 @@ def main() -> int:
     logger.warning("=== Goethe Booking Bot - Personal Use Only ===")
 
     students = load_all_students(args.config)
+    db.save_students(students)
     logger.info("Loaded %d student(s)", len(students))
 
     for i, s in enumerate(students):
@@ -912,13 +1115,18 @@ def main() -> int:
 
     threads = []
     results_list = []
+    results_lock = threading.Lock()
+
+    def run_one(s: Dict):
+        key = f"{s.get('name', '?')}|{s.get('level', s.get('exam_level', '?'))}|{s.get('city', '?')}"
+        student_logger = setup_logger(f"bot_{s.get('name', 'unknown')}_{s.get('level', '?')}")
+        result = smart_retry(s, args.headless, student_logger, threading.Event())
+        with results_lock:
+            results_list.append(result)
+        db.update_student_status(key, result.get("status", "failed"), result)
 
     for student in students:
-        t = threading.Thread(
-            target=lambda s, rl: rl.append(run_student_flow(s, args.headless, setup_logger(f"bot_{s.get('name', 'unknown')}"))),
-            args=(student, results_list),
-            daemon=True,
-        )
+        t = threading.Thread(target=run_one, args=(student,), daemon=True)
         threads.append(t)
         t.start()
 
@@ -938,7 +1146,7 @@ def main() -> int:
         logger.info(line)
 
     summary = "\n".join(summary_lines)
-    send_telegram(f"<b>Booking Summary</b>\n{summary}", logger)
+    notifications.notify_all("Booking Summary", summary, logger)
 
     print("\n" + "=" * 50)
     print("  BOOKING SUMMARY:")

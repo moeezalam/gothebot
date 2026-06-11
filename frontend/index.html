@@ -175,8 +175,23 @@
     </div>
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <span style="font-size:12px;color:#6c7086;">📱 Telegram:</span>
-      <input type="text" id="tgToken" placeholder="Bot Token" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:180px;">
-      <input type="text" id="tgChatId" placeholder="Chat ID" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:180px;">
+      <input type="text" id="tgToken" placeholder="Bot Token" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:140px;">
+      <input type="text" id="tgChatId" placeholder="Chat ID" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:140px;">
+      <span style="font-size:12px;color:#6c7086;">📧 Email:</span>
+      <input type="text" id="emailTo" placeholder="Email to" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:160px;">
+      <span style="font-size:12px;color:#6c7086;">💬 WhatsApp:</span>
+      <input type="text" id="waTo" placeholder="WhatsApp to" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:6px 10px;color:#cdd6f4;font-size:12px;width:140px;">
+    </div>
+  </div>
+
+  <!-- Schedule Card -->
+  <div class="card">
+    <div class="card-title">⏰ Schedule Auto-Start</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="datetime-local" id="scheduleDt" style="background:#313244;border:1px solid #45475a;border-radius:6px;padding:8px 12px;color:#cdd6f4;font-size:13px;">
+      <button class="btn btn-secondary btn-sm" onclick="scheduleStart()">Schedule</button>
+      <button class="btn btn-secondary btn-sm" onclick="cancelSchedule()">Cancel</button>
+      <span id="scheduleStatus" style="font-size:12px;color:#6c7086;"></span>
     </div>
   </div>
 
@@ -227,7 +242,7 @@ let connected = false;
 
 // ── Init ──
 document.getElementById("backendUrl").value = BASE;
-loadTelegramSettings();
+loadNotificationSettings();
 connectBackend();
 
 // ── Backend Connection ──
@@ -243,6 +258,7 @@ async function connectBackend() {
     updateBadge(false);
     await loadConfigFromBackend();
     await loadSchedule();
+    await loadScheduleStatus();
     startStatusPoll();
   } catch (e) {
     connected = false;
@@ -501,15 +517,52 @@ function appendLog(data) {
 
 function clearLog() { document.getElementById("logBox").innerHTML = ""; }
 
-// ── Telegram persistence ──
-function loadTelegramSettings() {
+// ── Schedule ──
+async function scheduleStart() {
+  const dt = document.getElementById("scheduleDt").value;
+  if (!dt) return alert("Select a date/time");
+  try {
+    const resp = await fetch(`${BASE}/api/schedule-start`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({datetime: dt + ":00"}),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await resp.json();
+    if (data.ok) document.getElementById("scheduleStatus").textContent = "✅ Scheduled for " + dt;
+    else alert(data.error);
+  } catch(e) { alert("Schedule failed: " + e.message); }
+}
+
+async function cancelSchedule() {
+  try {
+    await fetch(`${BASE}/api/schedule-cancel`, { method: "POST", signal: AbortSignal.timeout(5000) });
+    document.getElementById("scheduleStatus").textContent = "⛔ Cancelled";
+  } catch { /* ignore */ }
+}
+
+async function loadScheduleStatus() {
+  try {
+    const resp = await fetch(`${BASE}/api/schedule-status`, { signal: AbortSignal.timeout(5000) });
+    const data = await resp.json();
+    if (data.scheduled) document.getElementById("scheduleStatus").textContent = "⏳ Scheduled for " + data.datetime;
+  } catch { /* ignore */ }
+}
+
+// ── Notification settings persistence ──
+function loadNotificationSettings() {
   const t = localStorage.getItem("tg_token");
   if (t) document.getElementById("tgToken").value = t;
   const c = localStorage.getItem("tg_chat_id");
   if (c) document.getElementById("tgChatId").value = c;
+  const e = localStorage.getItem("email_to");
+  if (e) document.getElementById("emailTo").value = e;
+  const w = localStorage.getItem("wa_to");
+  if (w) document.getElementById("waTo").value = w;
 }
 document.getElementById("tgToken").onchange = () => localStorage.setItem("tg_token", document.getElementById("tgToken").value);
 document.getElementById("tgChatId").onchange = () => localStorage.setItem("tg_chat_id", document.getElementById("tgChatId").value);
+document.getElementById("emailTo").onchange = () => localStorage.setItem("email_to", document.getElementById("emailTo").value);
+document.getElementById("waTo").onchange = () => localStorage.setItem("wa_to", document.getElementById("waTo").value);
 
 // ── Helpers ──
 function escHtml(s) {
