@@ -1,3 +1,26 @@
+# Session Summary — July 1, 2026 (Part 8) — Git History Scrub Executed + India Dropped
+
+## Summary
+- **Git history secret scrub — DONE (owner approved).** Backed up the repo to a bundle, ran
+  `git filter-repo --replace-text` over all 296 commits redacting every leaked literal (admin pw,
+  Railway/dashboard tokens, Postgres pw, ScrapingBee keys, Goethe email, GitHub/Vercel tokens), then
+  force-pushed. Verified: each secret now appears in **0 commits** (was up to 12). CI re-ran on the
+  rewritten history and passed.
+  - ⚠️ **A scrub is NOT a rotation.** The credentials are still valid until changed at each provider
+    (`docs/SECURITY_ROTATION.md`). Rotation remains the #1 owner task.
+  - ⚠️ **History was force-pushed** → all commit SHAs changed. Any other local clone is now divergent
+    and must be re-cloned (not pulled). Older SHA references in these summaries are historical.
+- **India adaptation dropped from scope.** Client no longer engaged; project is Goethe **Pakistan** only.
+  Removed the India todo from AGENTS.md and the task list.
+
+## State at end of session
+- HEAD ~`cd12a5c` (post-rewrite lineage). CI green, 116 unit tests pass, backend healthy,
+  frontend `goethe-frontend-v3` live, git tree + history clean of secrets.
+- **Remaining = owner-only:** rotate secrets; provision reCAPTCHA bypass (VPS/proxy/2Captcha);
+  provide Railway public Postgres URL so `DATABASE_URL_EXTERNAL` can be set; run the live booking test.
+
+---
+
 # Session Summary — July 1, 2026 (Part 7) — Hardening Batch: CI Gate, 2Captcha, Alert Webhook, Wizard Tests, Runbooks
 
 ## Summary
