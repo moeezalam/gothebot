@@ -160,16 +160,24 @@ ScrapingBee (premium_proxy) → curl_cffi (chrome131 impersonate) → Playwright
 - **FERNET_KEY persists in DB** (`b5688b0`); **dead Netlify refs removed** + GH `NETLIFY_*` secrets deleted;
   **stale `092f`→`21af`** URL fix; **Alexa prompt** corrected; **connect bar hides when authed**;
   **VPS runbook** (`docs/VPS_SETUP.md` + `deploy/vps_setup.sh`)
-- Regression tests: `tests/test_database.py`, `tests/test_booking_wizard.py`, `tests/test_smart_retry.py` (111 unit tests pass)
+- Regression tests: `tests/test_database.py`, `tests/test_booking_wizard.py`, `tests/test_smart_retry.py`
 
-### ⬜ Pending
-- [ ] **Rotate all leaked secrets at their providers** (see table above) — removed from the tree, but they
-      were public in git history/chat; rotation is the only real fix (GitHub tokens, Vercel token, Goethe pw,
-      Railway API token, Postgres pw, ScrapingBee key, admin `AUTH_PASSWORD`)
-- [ ] Set repo secret `DATABASE_URL_EXTERNAL` (Railway public Postgres URL) so the pg-backup workflow can run
-- [ ] Railway reCAPTCHA bypass — provision the VPS (runbook ready) / residential proxy / 2Captcha. **Owner action.**
-- [ ] Live booking test — blocked until the next registration window opens (and depends on the reCAPTCHA fix)
-- [ ] (Optional) Scrub secrets from git history (`git filter-repo` + force-push) — destructive, rewrites all
-      SHAs; only defense-in-depth since rotation is the real fix. Awaiting owner go-ahead.
-- [ ] India adaptation — separate Webshop-based engine (different from Pakistan `pr_finder`)
-- [ ] No automated tests for the *full* live booking flow (helpers + scrapers + db layer + retry are covered)
+### Hardening batch (`6ac0d4e`)
+- **CI now gates deploys**: `test` job runs on push+PR and both deploy jobs `needs:[test]`; added a
+  `py_compile` + `import webapp` smoke step (catches the class of bug that was the Part-5 crash).
+  Verified live: a push now runs tests before deploying.
+- **2Captcha wired into login**: `_login_attempt` calls `detect_captcha`/`solve_captcha` (was dead code;
+  no-op without `CAPTCHA_API_KEY`).
+- **Alert webhook**: `notifications.notify_all` also POSTs to `ALERT_WEBHOOK_URL` (SMS/call bridge);
+  `scripts/test_notifications.py` verifies all channels.
+- **Wizard field-mapping tests**: `tests/test_wizard_steps.py` (116 unit tests pass).
+- **Owner runbooks**: `docs/SECURITY_ROTATION.md`, `docs/LIVE_TEST.md`; proxy-auth limitation documented
+  in `docs/VPS_SETUP.md`.
+
+### ⬜ Pending (owner action)
+- [ ] **Rotate all leaked secrets** — checklist in `docs/SECURITY_ROTATION.md`. Only the owner can do this.
+- [ ] Provision reCAPTCHA bypass — VPS (`docs/VPS_SETUP.md`) / IP-whitelisted residential proxy / set `CAPTCHA_API_KEY`.
+- [ ] Set repo secret `DATABASE_URL_EXTERNAL` (Railway public Postgres URL) for pg-backup — I can set it once you paste the value.
+- [ ] Live booking test — run `docs/LIVE_TEST.md` on the next registration window.
+- [ ] (Optional) Scrub secrets from git history — destructive; awaiting go-ahead.
+- [ ] India adaptation — separate Webshop-based engine.

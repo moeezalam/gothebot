@@ -1,3 +1,50 @@
+# Session Summary — July 1, 2026 (Part 7) — Hardening Batch: CI Gate, 2Captcha, Alert Webhook, Wizard Tests, Runbooks
+
+## Summary
+Worked the owner's 10-item pre-window list. 6 built + verified, 4 are owner-only (rotation, VPS,
+DATABASE_URL_EXTERNAL value, live run) with deliverables prepared.
+- **CI gate fixed** (`6ac0d4e`): `test` job now runs on push (not just PR) and both deploy jobs use
+  `needs:[test]`; added a `py_compile $(git ls-files '*.py')` + `import webapp` smoke step so a syntax/
+  import error (like Part 5's IndentationError) can't reach prod. pytest command excludes `test_e2e`
+  (needs live server) and `test_live_integration` (hits goethe.de). **Verified in real CI: test ran and
+  passed, then deploys started.**
+- **2Captcha wired into login**: `booking_helper._login_attempt` now calls `detect_captcha` +
+  `solve_captcha` before submit — previously dead code. No-op without `CAPTCHA_API_KEY`.
+- **External alert webhook**: `notifications.notify_all` also POSTs `{text,title,message}` to
+  `ALERT_WEBHOOK_URL` (Twilio/Zapier/etc.) for dead-man/critical alerts beyond Telegram.
+- **Notification verifier**: `scripts/test_notifications.py` exercises Telegram/email/webhook.
+- **Wizard field-mapping tests**: `tests/test_wizard_steps.py` — asserts each CSV field lands in the
+  right selector across the 5 steps. **116 unit tests pass.**
+- **Proxy guidance corrected**: Chrome `--proxy-server` ignores inline `user:pass`; documented
+  IP-whitelist / local-upstream approaches in `docs/VPS_SETUP.md`.
+- **Owner runbooks**: `docs/SECURITY_ROTATION.md` (ordered rotation checklist), `docs/LIVE_TEST.md`
+  (next-window test).
+
+## Owner-only (deliverables ready, execution needs you)
+- Rotate all leaked secrets → `docs/SECURITY_ROTATION.md`.
+- Provision reCAPTCHA bypass (VPS / IP-whitelisted proxy / `CAPTCHA_API_KEY`).
+- Provide Railway public Postgres URL so I can set `DATABASE_URL_EXTERNAL`.
+- Run the live booking test on the next window → `docs/LIVE_TEST.md`.
+- Optional git-history scrub — awaiting go-ahead.
+
+## Commits This Part
+| Commit | Message |
+|--------|---------|
+| `6ac0d4e` | feat: CI test-gate, 2Captcha login fallback, alert webhook, wizard tests + owner runbooks |
+
+## Files Changed (this part)
+| File | Change |
+|------|--------|
+| `.github/workflows/deploy.yml` | test runs on push + gates deploys (needs:[test]); compile/import smoke |
+| `booking_helper.py` | wire 2Captcha into `_login_attempt` |
+| `notifications.py` | `ALERT_WEBHOOK_URL` in `notify_all` |
+| `scripts/test_notifications.py` | NEW — channel verifier |
+| `tests/test_wizard_steps.py` | NEW — wizard field-mapping tests |
+| `docs/SECURITY_ROTATION.md`, `docs/LIVE_TEST.md` | NEW — owner runbooks |
+| `docs/VPS_SETUP.md` | proxy-auth limitation clarified |
+
+---
+
 # Session Summary — July 1, 2026 (Part 6) — Cleanup Pass: FERNET Persistence, Stale-Ref Removal, VPS Runbook, Tests
 
 ## Summary
