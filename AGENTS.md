@@ -1,21 +1,28 @@
 # AGENTS.md — Goethe Booking Bot
 
-## ⏰ Booking Day Status (client: 1 student, A1 Islamabad, reg opens 03.07.2026 12:16 PM)
-- **CONFIRMED: Railway CANNOT log in to Goethe.** Form Scanner from Railway prod →
-  `Login failed: Still on login page — no visible error`. Cause = datacenter IP + invisible
-  reCAPTCHA v3 (silent low-score block). Not removable; all datacenter IPs affected.
-- **2Captcha key set** on Railway (`CAPTCHA_API_KEY=...`, $3 balance) — but code only solves
-  reCAPTCHA **v2**; Goethe login is **v3**, so it does NOT fix Railway. Wired but ineffective here.
-- **booking_datetime AM/PM bug FIXED** (`100a986`): student row was `2026-07-03T12:16 PM` (invalid ISO →
-  bot errored). `parse_exam_time_str` now tolerates AM/PM; frontend Fetch-Dates converts to 24h.
-  ⚠️ The exact reg-open time `12:16 PM` is unverified — check official goethe.de page.
-- **Student loaded**: DB id 4, `abeer meer`, A1 Islamabad, email `abeermeer7979@gmail.com`, all wizard
-  fields present. Password stored encrypted (FERNET key persisted in DB).
-- **NOT YET TESTED: home/residential IP login.** Run `python scripts/scan_form_local.py --email .. --password ..`
-  to confirm. If home works → IP block confirmed. If home also fails → it's a bug, not IP.
-- **Booking-day options (ranked):** (1) run local from a clean IP — dev's home laptop or remote-in to
-  client via AnyDesk (`scripts/run_local.bat` → dashboard → localhost:5000); (2) residential proxy on
-  Railway (needs `selenium-wire` for user:pass auth — NOT yet implemented); (3) 2Captcha v3 (unreliable).
+## ✅ Booking Day Status (client: 1 student, A1 Islamabad, reg opens 03.07.2026 12:16 PM)
+**SOLVED. Root cause = HEADLESS, not IP.** Verified login flow end-to-end:
+- Headless Chrome (Railway OR local) → reCAPTCHA v3 silent block → `Still on login page`.
+- **Headful Chrome from a home/residential IP → `★ LOGIN SUCCESSFUL`** (reached `my.goethe.de/kdf/fe/user/index`).
+- Creds are **valid** (`abeermeer7979@gmail.com`), home IP is **clean**. So run local + headful.
+
+### Fixes shipped for booking day
+- `api_start` no longer forces headless on Windows/macOS when `DISPLAY` unset (`19963b7`).
+- `create_driver` honors `DISABLE_UC=1` (undetected-chromedriver is broken on Chrome149/Windows:
+  zombie procs + profile lock). `run_local.bat` sets it + runs from repo root.
+- `parse_exam_time_str` tolerates AM/PM; frontend Fetch-Dates emits 24h (`100a986`).
+
+### Tomorrow — exact steps (run on a home-IP laptop)
+1. `scripts\run_local.bat` → backend on `http://localhost:5000` (sets `DISABLE_UC=1`).
+2. Dashboard `goethe-frontend-v3.vercel.app` → Backend URL `http://localhost:5000` → Connect → login.
+3. Confirm student **abeer meer / A1 / Islamabad** (add if missing; needs Goethe email+password + all fields).
+4. **UNCHECK "Headless"** — REQUIRED (headless = blocked).
+5. Verify `booking_datetime` = the TRUE reg-open time (⚠️ confirm `12:16 PM` on official goethe.de page).
+6. Start ~5 min before open. Bot burst-polls → clicks "Select modules" → headful login → 5-step wizard → confirm.
+7. Laptop awake, stable wifi, **don't touch the Chrome window** while it runs.
+
+2Captcha (`CAPTCHA_API_KEY` on Railway, $3) is v2-only → irrelevant now; local headful is the path.
+`kill`-tip: if Chrome zombies pile up, `taskkill /F /IM chrome.exe /T` before re-running.
 
 ## Session Context (latest — maintenance, secret hygiene, Vercel rebuild)
 - **CRITICAL backend-crash fixed** (`7c6294e`): `websocket_handler.py` had a committed
