@@ -403,7 +403,11 @@ def create_driver(use_headless: bool, logger: logging.Logger, proxy: Optional[st
     last_exc = None
 
     # ── undetected-chromedriver path (stealth) ──
-    if HAS_UC:
+    # Skippable via DISABLE_UC=1 — uc is buggy on some Chrome/Windows combos
+    # (fails, spawns zombie Chrome, locks the profile). Local runs from a clean
+    # residential IP don't need uc's stealth, so plain Selenium is more reliable.
+    _uc_disabled = os.environ.get("DISABLE_UC", "").lower() in ("1", "true", "yes")
+    if HAS_UC and not _uc_disabled:
         for attempt in range(1, max_attempts + 1):
             try:
                 driver = uc.Chrome(options=options, version_main=None, use_subprocess=True)

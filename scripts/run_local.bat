@@ -2,6 +2,11 @@
 title Goethe Booking Bot — Local Mode
 :: Run from repo root regardless of where the .bat is launched from.
 cd /d "%~dp0.."
+:: undetected-chromedriver is buggy on Windows/Chrome 149 (zombie procs, profile
+:: lock). Local run uses plain Selenium — home IP doesn't need uc's stealth.
+:: IMPORTANT: run the bot HEADFUL (leave "Headless" UNCHECKED) — headless is
+:: silently blocked by Goethe reCAPTCHA v3; headful from a home IP logs in fine.
+set DISABLE_UC=1
 echo ============================================
 echo   Goethe Booking Bot — Local Runner
 echo   Starts Flask backend on your laptop

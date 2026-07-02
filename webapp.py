@@ -872,7 +872,10 @@ def api_start(data: StartRequest):
     students = sorted(students, key=lambda s: s.get("booking_datetime", "") or "9999-12-31T23:59")
 
     headless = data.headless
-    if not headless and not os.environ.get("DISPLAY"):
+    # Only force headless on Linux with no X display. On Windows/macOS a headful
+    # window works without DISPLAY — and headful is REQUIRED to pass Goethe's
+    # reCAPTCHA v3 (headless gets silently blocked). Don't force it there.
+    if not headless and os.name != "nt" and sys.platform != "darwin" and not os.environ.get("DISPLAY"):
         headless = True
     immediate = data.immediate
 
