@@ -213,20 +213,25 @@ ScrapingBee (premium_proxy) → curl_cffi (chrome131 impersonate) → Playwright
 - Goethe CAS sessions are **IP-bound**. Replaying cookies from a different IP = rejected.
 - Three-layer defense invalidated for Railway-only operation. Only **residential IP** works.
 
-### Standalone .exe built (`9a5b46f`)
-- **Windows:** `dist/windows/goethe-booker.exe` (67 MB, PyInstaller, no Python needed)
-- **Mac:** `dist/mac/` — Python scripts + `install.command` + `run.command`
-- Double-click → bot runs from local home IP → login works → books.
+### Standalone .exe built
+- **Windows:** `dist/windows/goethe-booker.exe` (67 MB, PyInstaller). **Known issue:** selenium submodule imports fail at runtime (needs spec file fix with all hidden imports).
+- **Mac:** `dist/mac/` — Python scripts + `install.command` + `run.command`. No build needed (Mac has Python).
 - Config via `student.json` (rename from `student.template.json`).
+
+### Residential proxy recommended: Smartproxy
+- **$4/GB pay-as-you-go** (no monthly fee). Cost per booking: ~$0.02-0.05
+- ✅ Supports **IP whitelisting** → whitelist Railway IP → `PROXY_LIST=http://gate:8080`
+- ✅ **No code changes needed** (current `--proxy-server` + `proxy_rotator.py` work with IP-whitelisted proxies)
+- Free trial: 100MB / 3 days at `smartproxy.com`
+- Alternative: IPRoyal ($4.55/GB, no monthly commitment)
 
 ### Key finding: Only residential IP bypasses reCAPTCHA
 All cloud platforms (Railway, Colab, Oracle, GitHub Actions) = datacenter IP = blocked by Google reCAPTCHA v3.
-Only real solutions: **client runs locally** (free, guaranteed) or **residential proxy** on any server ($3-5/mo).
 
 ## ⬜ Pending (owner action)
-- [ ] **Rotate all leaked secrets — STILL REQUIRED.** History scrub ≠ rotation; the tokens/passwords
-      remain valid until changed at each provider. Checklist: `docs/SECURITY_ROTATION.md`.
-- [ ] Set repo secret `DATABASE_URL_EXTERNAL` (Railway public Postgres URL) for pg-backup.
-- [ ] Live booking test — client runs standalone .exe from home IP or dashboard local server.
+- [ ] **Rotate all leaked secrets — STILL REQUIRED.** History scrub ≠ rotation.
+- [ ] Buy residential proxy (Smartproxy/IPRoyal) → IP-whitelist Railway IP → set `PROXY_LIST` env var
+- [ ] Set repo secret `DATABASE_URL_EXTERNAL` for pg-backup
+- [ ] Live booking test at next booking window
 
 > India adaptation is **dropped** (client no longer engaged). Scope is Goethe **Pakistan** only.

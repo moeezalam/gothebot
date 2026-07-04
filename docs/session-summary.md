@@ -1,3 +1,40 @@
+# Session Summary — July 3, 2026 (Part 14) — Residential Proxy Research: Best Provider for Railway Fix
+
+## Context
+All cloud datacenter IPs blocked by Goethe reCAPTCHA v3. Cookie capture IP-pinned. Only solution:
+route Railway bot traffic through a residential IP via proxy. Researched best providers.
+
+## Key Findings
+- **Smartproxy** ($4/GB pay-as-you-go) best for this use case:
+  - 115M+ residential IPs, 195 countries
+  - Supports **IP whitelisting** → whitelist Railway IP (39.45.18.10) → set `PROXY_LIST=http://gate.smartproxy.com:8080`
+  - **No code changes needed** (current `--proxy-server` works with IP-whitelisted proxies)
+  - Cost per booking: ~$0.02-0.05 (5-10MB per booking session)
+  - Free trial: 100MB / 3 days
+- **IPRoyal** ($4.55/GB pay-as-you-go) runner up
+- **9Proxy** alternative pricing model (per IP not per GB)
+
+## What's the fix
+1. Buy Smartproxy pay-as-you-go (or use free trial)
+2. IP-whitelist Railway's IP in Smartproxy dashboard
+3. Set `railway variable set PROXY_LIST=http://gate.smartproxy.com:8080`
+4. Railway bot traffic exits through residential IP → reCAPTCHA passes → login works
+
+## .exe Status
+- Windows `.exe` built (67MB) but has PyInstaller import issues with selenium submodules
+- Needs additional hidden imports or spec file fix for production use
+- Mac package ready (Python scripts, no build needed — Mac has Python pre-installed)
+
+## What's Left
+| Task | Cost | Who |
+|------|------|-----|
+| Buy residential proxy (Smartproxy/IPRoyal) | ~$4/GB pay-as-you-go | Owner |
+| IP-whitelist Railway IP + set PROXY_LIST | $0 | 5 min in dashboard |
+| Rotate exposed secrets | $0 | Owner (SECURITY_ROTATION.md) |
+| Test booking at next window | $0 | Bot auto |
+
+---
+
 # Session Summary — July 3, 2026 (Part 13) — Cookie Persistence IP-Pinned + Standalone .exe Built
 
 ## Context
