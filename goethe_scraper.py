@@ -231,13 +231,8 @@ def _scrape_level(level: str) -> List[ExamEntry]:
         "sortOrder": "ASC",
     }
 
-    # Prefer curl_cffi through the residential proxy — fast, free, unblocked.
-    # (Datacenter IP + dead/expired ScrapingBee made schedule loads slow.)
-    if HAS_CURL and _first_proxy():
-        entries = _scrape_via_curl_cffi(level, url, params)
-        if entries:
-            return entries
-
+    # ScrapingBee first — its premium residential proxies bypass Goethe's WAF/403
+    # reliably. curl_cffi (+ our own proxy) is the free fallback if SB is unset/out.
     if SCRAPINGBEE_API_KEY:
         entries = _scrape_via_scrapingbee(level, url, params)
         if entries:
@@ -270,7 +265,8 @@ def _scrape_via_scrapingbee(level: str, url: str, params: dict) -> List[ExamEntr
                     f"?api_key={SCRAPINGBEE_API_KEY}"
                     f"&url={encoded}"
                     f"&render_js=false"
-                    f"&premium_proxy=true")
+                    f"&premium_proxy=true"
+                    f"&country_code=pk")
         print(f"[pk_scraper] ScrapingBee request for {level}...")
         resp = requests.get(bee_url, timeout=60)
         if resp.status_code == 200:
