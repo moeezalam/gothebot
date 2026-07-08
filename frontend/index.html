@@ -1555,8 +1555,10 @@ async function fetchLiveDates() {
   btn.disabled = true;
   dropdown.style.display = "none";
   try {
-    const resp = await apiFetch(`${BASE}/api/goethe-schedule?refresh=1`, {
-      signal: AbortSignal.timeout(45000), _loading: "Fetching dates...",
+    // Use the cached schedule (the schedule panel already populated it). Forcing
+    // refresh=1 here re-scrapes all 3 levels and times out when Goethe throttles.
+    const resp = await apiFetch(`${BASE}/api/goethe-schedule`, {
+      signal: AbortSignal.timeout(20000), _loading: "Fetching dates...",
     });
     const data = await resp.json();
     if (!data.ok || !data.data || data.data.length === 0) {
