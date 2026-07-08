@@ -1665,6 +1665,12 @@ async function formScan() {
     let txt = r.message + "\n";
     txt += `Selector match: ${r.known_keys_found}/${r.known_keys_total}\n`;
     if (r.missing_keys && r.missing_keys.length) txt += `Missing: ${r.missing_keys.join(", ")}\n`;
+    if (r.dropdowns && Object.keys(r.dropdowns).length) {
+      txt += "\nDropdown options:\n";
+      for (const k in r.dropdowns) {
+        txt += `  ${k}: ${(r.dropdowns[k] || []).join(" | ")}\n`;
+      }
+    }
     txt += "\nForm fields found:\n";
     for (const f of r.fields) {
       txt += `  <${f.tag}${f.type ? ' type="'+f.type+'"' : ''} name="${f.name}" id="${f.id}" placeholder="${f.placeholder}"`;

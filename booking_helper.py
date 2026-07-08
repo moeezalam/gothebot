@@ -1034,7 +1034,10 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
                         class: el.className || '',
                         label: (function(){var l;try{l=document.querySelector('label[for=\\\"'+el.id+'\\\"]')}catch(e){}return l?l.innerText.trim():''})(),
                         visible: rect.top > -100 && rect.top < window.innerHeight,
-                        value: el.value || ''
+                        value: el.value || '',
+                        options: (el.tagName.toLowerCase() === 'select')
+                            ? Array.prototype.map.call(el.options, function(o){return o.text.trim();})
+                            : []
                     });
                 }
             }
@@ -1050,6 +1053,11 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
                     found_keys.add(key)
 
         result["fields"] = fields
+        # Surface every dropdown's options (motivation, phone prefix, DOB, etc.)
+        result["dropdowns"] = {
+            (f.get("name") or f.get("id") or f.get("label") or "select"): f.get("options")
+            for f in fields if f.get("tag") == "select" and f.get("options")
+        }
         result["known_keys_found"] = len(found_keys)
         result["known_keys_total"] = len(known_keys)
         missing = set(known_keys) - found_keys
@@ -1696,6 +1704,39 @@ def _fill_select_by_visible(driver: webdriver.Chrome, selectors: List[str], valu
     return False
 
 
+def _select_dropdown_first_valid(driver: webdriver.Chrome, sel_key: str, value: str,
+                                 logger: logging.Logger, timeout: int = 5) -> bool:
+    """Select `value` (exact match, then partial). If empty or no match, pick the
+    first real (non-placeholder) option so a required dropdown never stalls the
+    wizard. Used for motivation where the exact option text is unknown."""
+    el = find_element_fallback(driver, sel_key, timeout=timeout, logger=logger)
+    if not (el and el.is_displayed() and el.tag_name.lower() == "select"):
+        return False
+    sel = Select(el)
+    opts = sel.options
+    v = (value or "").strip().lower()
+    if v:
+        for i, o in enumerate(opts):
+            if o.text.strip().lower() == v:
+                sel.select_by_index(i)
+                logger.info("Dropdown %s: exact '%s'", sel_key, o.text.strip())
+                return True
+        for i, o in enumerate(opts):
+            if o.text.strip() and v in o.text.strip().lower():
+                sel.select_by_index(i)
+                logger.info("Dropdown %s: partial '%s'", sel_key, o.text.strip())
+                return True
+    _placeholders = ("why are you", "please", "select", "choose", "---", "bitte", "auswähl")
+    for i, o in enumerate(opts):
+        t = o.text.strip()
+        ov = (o.get_attribute("value") or "").strip()
+        if t and ov and not any(p in t.lower() for p in _placeholders):
+            sel.select_by_index(i)
+            logger.info("Dropdown %s: fallback first-valid '%s'", sel_key, t)
+            return True
+    return False
+
+
 def _ensure_session(driver: webdriver.Chrome, student: Dict[str, str],
                     logger: logging.Logger, step_label: str = "") -> None:
     """Check if we're on a CAS login page (session expired) and re-login."""
@@ -1765,7 +1806,7 @@ def _fill_step_personal_data_2(driver: webdriver.Chrome, student: Dict[str, str]
             _fill_text_input(driver, ["form_phone"], phone, logger)
 
         _fill_text_input(driver, ["form_place_of_birth"], student.get("place_of_birth", ""), logger)
-        _fill_select_by_visible(driver, ["motivation_dropdown"], student.get("motivation", ""), logger)
+        _select_dropdown_first_valid(driver, "motivation_dropdown", student.get("motivation", ""), logger)
 
         if not _click_continue_wizard(driver, logger):
             save_failure_evidence(driver, "debug_step2_no_continue")

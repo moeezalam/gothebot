@@ -45,8 +45,13 @@ def capture(monkeypatch):
         calls["select"].append((selectors[0], value))
         return True
 
+    def fake_dropdown(driver, sel_key, value, logger, timeout=5):
+        calls["select"].append((sel_key, value))
+        return True
+
     monkeypatch.setattr(bot, "_fill_text_input", fake_text)
     monkeypatch.setattr(bot, "_fill_select_by_visible", fake_select)
+    monkeypatch.setattr(bot, "_select_dropdown_first_valid", fake_dropdown)
     monkeypatch.setattr(bot, "_click_continue_wizard",
                         lambda *a, **k: calls.__setitem__("continue", calls["continue"] + 1) or True)
     return calls
