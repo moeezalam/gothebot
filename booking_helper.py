@@ -341,6 +341,15 @@ def _apply_stealth(driver: webdriver.Chrome) -> None:
         pass
 
 
+def _parse_proxy(proxy: str):
+    """Return (host, port, user, pass) from a proxy string. Supports
+    http://user:pass@host:port, user:pass@host:port, host:port."""
+    import urllib.parse as _up
+    s = proxy if "://" in proxy else "http://" + proxy
+    p = _up.urlparse(s)
+    return p.hostname, p.port, (p.username or ""), (p.password or "")
+
+
 def create_driver(use_headless: bool, logger: logging.Logger, proxy: Optional[str] = None, profile_name: str = "default") -> webdriver.Chrome:
     global _driver_counter
     _driver_counter += 1
@@ -362,7 +371,6 @@ def create_driver(use_headless: bool, logger: logging.Logger, proxy: Optional[st
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--disable-extensions")
     options.add_argument("--disable-background-networking")
     options.add_argument("--disable-sync")
     options.add_argument("--disable-translate")
@@ -388,8 +396,19 @@ def create_driver(use_headless: bool, logger: logging.Logger, proxy: Optional[st
 
     # ── Proxy ──
     if proxy:
-        logger.info("Using proxy: %s", proxy)
-        options.add_argument(f"--proxy-server={proxy}")
+        _phost, _pport, _puser, _ppass = _parse_proxy(proxy)
+        if _puser and _ppass and _phost and _pport:
+            # Chrome --proxy-server ignores user:pass and MV2 auth-extensions are
+            # dead on Chrome 127+. Route through a localhost forwarder that adds
+            # Basic auth to the upstream proxy (tunnels HTTPS via CONNECT, no MITM).
+            from proxy_auth_forward import start_auth_forwarder
+            _lport = start_auth_forwarder(_phost, _pport, _puser, _ppass)
+            options.add_argument(f"--proxy-server=http://127.0.0.1:{_lport}")
+            logger.info("Auth proxy via local forwarder 127.0.0.1:%s -> %s:%s", _lport, _phost, _pport)
+        else:
+            options.add_argument(f"--proxy-server={proxy}")
+            logger.info("Using proxy: %s", proxy)
+    options.add_argument("--disable-extensions")
 
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--lang=en-US,en")
@@ -898,7 +917,12 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
     try:
         from selector_fallbacks import ELEMENT_SELECTORS
         pname = f"{student.get('name','')}_{student.get('level','')}_{student.get('city','')}"
-        driver = create_driver(use_headless=True, logger=logger, profile_name=pname)
+        _scan_proxy = None
+        try:
+            _scan_proxy = PROXY_ROTATOR.get()
+        except Exception:
+            _scan_proxy = None
+        driver = create_driver(use_headless=True, logger=logger, proxy=_scan_proxy, profile_name=pname)
         from selenium.webdriver.common.by import By
         from selenium.common.exceptions import NoSuchElementException
 
