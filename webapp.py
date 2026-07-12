@@ -194,12 +194,16 @@ if SENTRY_DSN:
     )
 
 # ── Allowed origins for CORS ──
+# Extra origins can be added via the CORS_ORIGINS env var (comma-separated),
+# so new frontend deploy URLs don't require a code change.
 _ALLOWED_ORIGINS = {
     "https://goethe-frontend-v3.vercel.app",
-    "https://goethe-booking-bot-production-21af.up.railway.app",
     "http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:5000",
+}
+_ALLOWED_ORIGINS |= {
+    o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()
 }
 
 
