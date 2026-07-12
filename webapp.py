@@ -104,7 +104,10 @@ if _db_url.startswith("postgresql://") or _db_url.startswith("postgres://"):
     import database as db
 else:
     import db
-import alexa
+try:
+    import alexa
+except ImportError:
+    alexa = None  # optional AI-chat assistant; /chat endpoint disabled if absent
 import goethe_scraper
 import student_queue as sqmod
 from deadman import DeadManSwitch
@@ -1490,7 +1493,7 @@ def _retry_one_student(student: Dict):
     else:
         student_status[key] = {"status": status, "color": "warning", "details": ""}
 
-if GEMINI_API_KEY:
+if GEMINI_API_KEY and alexa is not None:
     alexa_assistant = alexa.AlexaAssistant(api_key=GEMINI_API_KEY, context_provider=_alexa_context)
 else:
     alexa_assistant = None
