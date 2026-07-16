@@ -205,6 +205,15 @@ _ALLOWED_ORIGINS = {
 _ALLOWED_ORIGINS |= {
     o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()
 }
+# Entries starting with "*" are suffix-matched, so all deploy/preview URLs of a
+# Vercel project pass (e.g. "*-myteam.vercel.app").
+_ALLOWED_ORIGIN_SUFFIXES = tuple(
+    o[1:] for o in _ALLOWED_ORIGINS if o.startswith("*")
+)
+
+
+def _origin_allowed(origin: str) -> bool:
+    return bool(origin) and origin.endswith(_ALLOWED_ORIGIN_SUFFIXES)
 
 
 @app.before_request
@@ -481,7 +490,7 @@ def run_students_web(students: List[Dict], headless: bool, immediate: bool = Fal
 @app.after_request
 def add_headers(resp):
     origin = flask.request.headers.get("Origin", "")
-    if origin in _ALLOWED_ORIGINS or not origin:
+    if origin in _ALLOWED_ORIGINS or _origin_allowed(origin) or not origin:
         resp.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
     else:
         resp.headers["Access-Control-Allow-Origin"] = ""
