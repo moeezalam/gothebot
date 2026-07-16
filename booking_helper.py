@@ -960,6 +960,14 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
             if not ok:
                 result["message"] = "Login failed: " + get_last_login_error()
                 return result
+            # Persist the session so later scans reuse it instead of logging in again
+            try:
+                fresh = driver.get_cookies()
+                if fresh:
+                    db.set_state("goethe_cookies", json.dumps(fresh))
+                    logger.info("✓ Saved %d cookies after login", len(fresh))
+            except Exception as exc:
+                logger.warning("Could not save cookies: %s", exc)
 
         exam_url = get_exam_url(student.get("level", student.get("exam_level", "A1")))
         logger.info("Form scanner: navigating to %s", exam_url)

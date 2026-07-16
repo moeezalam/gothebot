@@ -1724,7 +1724,7 @@ async function checkCookieStatus() {
     const resp = await apiFetch(`${BASE}/api/goethe-cookies`, { signal: AbortSignal.timeout(5000) });
     const data = await resp.json();
     btn.textContent = data.has_cookies ? "Cookies: ✅ " + data.count : "Cookies: ❌";
-    btn.title = data.has_cookies ? `${data.count} cookies saved — form scanner works without login` : "No saved cookies — run scripts/save_goethe_cookies.py";
+    btn.title = data.has_cookies ? `${data.count} cookies saved — form scanner works without login` : "No saved cookies — enter Goethe email/password and run Form Scanner once to save them";
   } catch {
     btn.textContent = "Cookies: ?";
   }

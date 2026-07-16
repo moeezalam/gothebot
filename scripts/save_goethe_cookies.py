@@ -15,12 +15,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--email", default="")
 parser.add_argument("--password", default="")
 parser.add_argument("--token", default="")
-parser.add_argument("--railway", default="https://goethe-booking-bot-production-21af.up.railway.app")
+parser.add_argument("--railway", default="https://goethe-booking-bot-production.up.railway.app")
 args = parser.parse_args()
 
 EMAIL = args.email or os.environ.get("GOETHE_EMAIL", "") or input("Goethe email: ").strip()
 PASSWORD = args.password or os.environ.get("GOETHE_PASSWORD", "") or input("Goethe password: ").strip()
-RAILWAY_URL = args.railway or input("Railway URL [https://goethe-booking-bot-production-21af.up.railway.app]: ").strip() or "https://goethe-booking-bot-production-21af.up.railway.app"
+RAILWAY_URL = args.railway or input("Railway URL [https://goethe-booking-bot-production.up.railway.app]: ").strip() or "https://goethe-booking-bot-production.up.railway.app"
 AUTH_TOKEN = args.token or input("Dashboard auth token (from login): ").strip()
 
 print("\nOpening browser...")
