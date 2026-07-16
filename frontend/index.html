@@ -1115,7 +1115,7 @@
 
 <script>
 // ── State ──
-const DEFAULT_BACKEND = "https://goethe-booking-bot-production-21af.up.railway.app";
+const DEFAULT_BACKEND = "https://goethe-booking-bot-production.up.railway.app";
 let BASE = localStorage.getItem("backend_url") || DEFAULT_BACKEND;
 let running = false;
 let evtSource = null;
@@ -1323,11 +1323,14 @@ function connectWebSocket() {
   if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
   const url = BASE.replace(/^http/, "ws") + "/ws/logs";
   try {
-    ws = new WebSocket(url);
-    ws.onopen = function() {
-      ws.send(JSON.stringify({token: authToken}));
+    const socket = new WebSocket(url);
+    ws = socket;
+    socket.onopen = function() {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({token: authToken}));
+      }
     };
-    ws.onmessage = function(e) {
+    socket.onmessage = function(e) {
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === "log" && msg.data) {
@@ -1338,11 +1341,13 @@ function connectWebSocket() {
         }
       } catch(ex) {}
     };
-    ws.onclose = function() {
-      ws = null;
-      wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+    socket.onclose = function() {
+      if (ws === socket) {
+        ws = null;
+        wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+      }
     };
-    ws.onerror = function() {
+    socket.onerror = function() {
       // will trigger onclose
     };
   } catch(ex) {}
