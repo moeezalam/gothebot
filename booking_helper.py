@@ -76,6 +76,7 @@ except Exception:
     plyer_notify = None
 
 import db
+import db_state
 import notifications
 
 # ── Exam level → page URL mapping ──
@@ -929,7 +930,7 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
         # Try saved cookies first (from parameter or DB)
         logged_in = False
         if not cookies:
-            raw = db.get_state("goethe_cookies", "")
+            raw = db_state.get_state("goethe_cookies", "")
             if raw:
                 try:
                     cookies = json.loads(raw)
@@ -964,7 +965,7 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
             try:
                 fresh = driver.get_cookies()
                 if fresh:
-                    db.set_state("goethe_cookies", json.dumps(fresh))
+                    db_state.set_state("goethe_cookies", json.dumps(fresh))
                     logger.info("✓ Saved %d cookies after login", len(fresh))
             except Exception as exc:
                 logger.warning("Could not save cookies: %s", exc)
@@ -1210,7 +1211,7 @@ def click_book_for_myself(driver: webdriver.Chrome, logger: logging.Logger, time
 
 def _load_saved_cookies(driver: webdriver.Chrome, logger: logging.Logger) -> bool:
     """Try to load saved Goethe cookies. Returns True if still on login page (need fresh login)."""
-    raw = db.get_state("goethe_cookies", "")
+    raw = db_state.get_state("goethe_cookies", "")
     if not raw:
         logger.info("No saved cookies found — need fresh login")
         return False
@@ -1245,7 +1246,7 @@ def _save_session_cookies(driver: webdriver.Chrome, logger: logging.Logger) -> N
     try:
         cookies = driver.get_cookies()
         if cookies:
-            db.set_state("goethe_cookies", json.dumps(cookies))
+            db_state.set_state("goethe_cookies", json.dumps(cookies))
             logger.info("✓ Saved %d session cookies for future reuse", len(cookies))
     except Exception as exc:
         logger.warning("Failed to save cookies: %s", exc)
