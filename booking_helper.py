@@ -960,6 +960,10 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
             ok = login_to_goethe(driver, student.get("email", ""), student.get("password", ""), logger)
             if not ok:
                 result["message"] = "Login failed: " + get_last_login_error()
+                # The scanner runs headless on Railway where stdout is not
+                # retrievable, so surface the post-login page state in the API
+                # response — otherwise "no visible error" is undiagnosable.
+                result["diagnostics"] = _login_failure_diagnostics(driver)
                 return result
             # Persist the session so later scans reuse it instead of logging in again
             try:
@@ -1250,6 +1254,28 @@ def _save_session_cookies(driver: webdriver.Chrome, logger: logging.Logger) -> N
             logger.info("✓ Saved %d session cookies for future reuse", len(cookies))
     except Exception as exc:
         logger.warning("Failed to save cookies: %s", exc)
+
+
+def _login_failure_diagnostics(driver: webdriver.Chrome) -> Dict:
+    """Snapshot the page after a failed login so the cause is visible remotely.
+
+    Every field is best-effort: a diagnostics helper must never raise and mask
+    the failure it is describing.
+    """
+    diag: Dict = {}
+    for label, getter in (
+        ("url", lambda: driver.current_url),
+        ("title", lambda: driver.title),
+        ("cookie_names", lambda: sorted(c.get("name", "") for c in driver.get_cookies())),
+        ("password_fields", lambda: len(driver.find_elements(By.CSS_SELECTOR, "input[type='password']"))),
+        ("forms", lambda: len(driver.find_elements(By.TAG_NAME, "form"))),
+        ("body_text", lambda: driver.find_element(By.TAG_NAME, "body").text[:600]),
+    ):
+        try:
+            diag[label] = getter()
+        except Exception as exc:
+            diag[label] = f"<unavailable: {exc.__class__.__name__}>"
+    return diag
 
 
 def login_to_goethe(driver: webdriver.Chrome, email: str, password: str, logger: logging.Logger) -> bool:
