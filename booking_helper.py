@@ -941,17 +941,15 @@ def scan_booking_form(student: Dict[str, str], logger: logging.Logger, cookies: 
             driver.get("https://login.goethe.de/cas/login")
             wait_for_document_ready(driver)
             time.sleep(1)
-            for c in cookies:
-                try:
-                    driver.add_cookie(c)
-                except Exception:
-                    pass
+            _inject_cookies(driver, cookies, logger)
             driver.get("https://login.goethe.de/cas/login")
             wait_for_document_ready(driver)
             time.sleep(2)
-            if "login" not in driver.current_url.lower():
+            if not _cas_login_form_present(driver):
                 logged_in = True
                 logger.info("✓ Logged in using saved cookies")
+            else:
+                logger.info("Saved cookies expired — falling back to fresh login")
 
         if not logged_in:
             driver.get("https://login.goethe.de/cas/login")
@@ -1227,15 +1225,11 @@ def _load_saved_cookies(driver: webdriver.Chrome, logger: logging.Logger) -> boo
         driver.get("https://login.goethe.de/cas/login")
         wait_for_document_ready(driver)
         time.sleep(1)
-        for c in cookies:
-            try:
-                driver.add_cookie(c)
-            except Exception:
-                pass
+        _inject_cookies(driver, cookies, logger)
         driver.get("https://login.goethe.de/cas/login")
         wait_for_document_ready(driver)
         time.sleep(2)
-        if "login" not in driver.current_url.lower() and "cas/login" not in driver.current_url.lower():
+        if not _cas_login_form_present(driver):
             logger.info("✓ Logged in using saved cookies!")
             return True
         logger.info("Cookies present but login page still showing — they may have expired")
@@ -1254,6 +1248,41 @@ def _save_session_cookies(driver: webdriver.Chrome, logger: logging.Logger) -> N
             logger.info("✓ Saved %d session cookies for future reuse", len(cookies))
     except Exception as exc:
         logger.warning("Failed to save cookies: %s", exc)
+
+
+def _cas_login_form_present(driver: webdriver.Chrome) -> bool:
+    """True if the CAS page is showing the login form (i.e., NOT logged in).
+
+    The URL can't be used for this: the host is login.goethe.de, so checking
+    `"login" not in url` never passes and cookie-based sessions were never
+    detected. A visible password field is the reliable marker.
+    """
+    try:
+        return any(
+            e.is_displayed()
+            for e in driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
+        )
+    except Exception:
+        return True  # on any doubt, assume we still need to log in
+
+
+def _inject_cookies(driver: webdriver.Chrome, cookies: List[Dict], logger: logging.Logger) -> int:
+    """Add saved cookies, retrying without the domain attribute — add_cookie
+    rejects cookies whose stored domain (e.g. .goethe.de) doesn't match the
+    current page's host, which silently dropped part of the session."""
+    added = 0
+    for c in cookies:
+        try:
+            driver.add_cookie(c)
+            added += 1
+        except Exception:
+            try:
+                driver.add_cookie({k: v for k, v in c.items() if k != "domain"})
+                added += 1
+            except Exception:
+                pass
+    logger.info("Injected %d/%d saved cookies", added, len(cookies))
+    return added
 
 
 def _login_failure_diagnostics(driver: webdriver.Chrome) -> Dict:
