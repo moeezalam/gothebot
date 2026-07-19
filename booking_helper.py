@@ -1275,6 +1275,7 @@ def _login_failure_diagnostics(driver: webdriver.Chrome) -> Dict:
             diag[label] = getter()
         except Exception as exc:
             diag[label] = f"<unavailable: {exc.__class__.__name__}>"
+    diag["pre_submit"] = dict(_last_login_probe)
     return diag
 
 
@@ -1305,6 +1306,7 @@ def login_to_goethe(driver: webdriver.Chrome, email: str, password: str, logger:
     return False
 
 _last_login_error = ""
+_last_login_probe: Dict = {}
 
 def get_last_login_error() -> str:
     return _last_login_error
@@ -1401,6 +1403,26 @@ def _login_attempt(driver: webdriver.Chrome, email: str, password: str, logger: 
             _last_login_error = "Submit button not found on login page"
             logger.warning(_last_login_error)
             return False
+
+        # Record what actually reached the inputs. Goethe answers a blank field
+        # with "This field is required" and no .error element, which is
+        # indistinguishable from a rejected password unless we check here.
+        # Lengths only — never the credential values.
+        global _last_login_probe
+        _last_login_probe = {}
+        for label, getter in (
+            ("email_typed_len", lambda: len(email)),
+            ("password_typed_len", lambda: len(password)),
+            ("email_field_value_len", lambda: len(email_input.get_attribute("value") or "")),
+            ("password_field_value_len", lambda: len(pwd_input.get_attribute("value") or "")),
+            ("submit_text", lambda: (submit_btn.text or submit_btn.get_attribute("value") or "")[:40]),
+        ):
+            try:
+                _last_login_probe[label] = getter()
+            except Exception as exc:
+                _last_login_probe[label] = f"<unavailable: {exc.__class__.__name__}>"
+        logger.info("Pre-submit field state: %s", _last_login_probe)
+
         logger.info("Clicking login submit button...")
         try:
             human_move_and_click(driver, submit_btn)
