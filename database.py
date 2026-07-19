@@ -331,6 +331,9 @@ def get_students() -> List[Dict]:
             "id": r.id,
             "name": r.name,
             "email": r.email,
+            # webapp._get_loaded_students() decrypts this to log in to goethe.de.
+            # Omitting it made the Postgres path always yield an empty password.
+            "password": r.password or "",
             "level": r.level,
             "city": r.city,
             "booking_datetime": r.booking_datetime,

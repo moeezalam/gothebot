@@ -77,6 +77,31 @@ def test_update_student_status_by_composite_key(database):
     assert row["result"]["reference"] == "REF1"
 
 
+def test_get_students_returns_the_password_column(database):
+    """webapp._get_loaded_students() decrypts students[i]["password"] to log in
+    to goethe.de. database.get_students() built its dicts field by field and
+    left `password` out, so the Postgres path always yielded "" — the bot typed
+    an empty password and Goethe answered "This field is required" with no
+    error element, which read as an unexplained login failure.
+    """
+    database.add_student({
+        "name": "Hassan", "email": "hassan@example.com",
+        "password": "stored-secret", "level": "A1", "city": "Lahore",
+    })
+    row = [r for r in database.get_students() if r["name"] == "Hassan"][0]
+    assert "password" in row, "get_students() dropped the password column"
+    assert row["password"] == "stored-secret"
+
+
+def test_save_students_password_survives_round_trip(database):
+    database.save_students([{
+        "name": "Abeer", "email": "abeer@example.com",
+        "password": "another-secret", "level": "B1", "city": "Lahore",
+    }])
+    row = [r for r in database.get_students() if r["name"] == "Abeer"][0]
+    assert row.get("password"), "password lost between save_students and get_students"
+
+
 def test_update_student_status_unknown_key_noop(database):
     database.add_student({"name": "Bob", "level": "A2", "city": "Lahore"})
     # Must not raise on a non-matching / malformed key.
